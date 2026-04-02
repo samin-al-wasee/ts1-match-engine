@@ -6,6 +6,7 @@ from models.player import Player
 from models.tactic import TeamTactic
 from models.team import Team
 from systems.strength_calculator import StrengthCalculator
+from match_engine import Match
 
 console = Console()
 
@@ -160,6 +161,16 @@ def main():
     print_starting_xi(team)
     print_player_details(team)
     print_strength_profile(profile)
+
+    # Assume Team has starting_xi list of Player objects
+    home = Team("Red Lions", formation="4-3-3", tactic=tactic)
+    away = Team("Blue Tigers", formation="4-3-3", tactic=tactic)
+
+    home.set_starting_xi([Player(id=i, name=f"HomePlayer{i}", position="Pos", role="Role", duty="Duty") for i in range(1, 12)])
+    away.set_starting_xi([Player(id=i, name=f"AwayPlayer{i}", position="Pos", role="Role", duty="Duty") for i in range(1, 12)])
+
+    match = Match(home, away)
+    match.simulate_match(total_minutes=30, display_interval=5)
 
 
 if __name__ == "__main__":

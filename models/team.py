@@ -22,3 +22,6 @@ class Team:
 
     def summary(self) -> str:
         return f"{self.name} | Formation: {self.formation} | Squad: {self.squad_size()}"
+
+    def set_starting_xi(self, players: List[Player]):
+        self.starting_xi = players
