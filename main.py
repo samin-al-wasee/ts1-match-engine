@@ -14,6 +14,7 @@ from debug.printer import (
     print_team_summary,
 )
 from systems.strength_calculator import StrengthCalculator
+from utils.attr_generator import generate_player_attribute_groups
 
 
 def main():
@@ -32,18 +33,46 @@ def main():
 
     # Create Home team
     home_players = [
-        Player(0, "Vancouver Derwin Server", Position.GK, Role.SHOT_STOPPER, Duty.DEFEND),
+        Player(
+            0, "Vancouver Derwin Server", Position.GK, Role.SHOT_STOPPER, Duty.DEFEND
+        ),
         Player(1, "Kyle Walkerstone", Position.RB, Role.FULL_BACK, Duty.SUPPORT),
         Player(2, "Michael Stoneman", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
         Player(3, "David Ironwood", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
         Player(4, "Lucas Greenfield", Position.LB, Role.FULL_BACK, Duty.SUPPORT),
-        Player(5, "James Steelheart", Position.DM, Role.ANCHOR_HOLDING_MIDFIELDER, Duty.DEFEND),
-        Player(6, "Ryan Thunderstrike", Position.DM, Role.DEFENSIVE_MIDFIELDER, Duty.SUPPORT),
-        Player(7, "Ethan Swiftblade", Position.AM, Role.ATTACKING_MIDFIELDER, Duty.ATTACK),
+        Player(
+            5,
+            "James Steelheart",
+            Position.DM,
+            Role.ANCHOR_HOLDING_MIDFIELDER,
+            Duty.DEFEND,
+        ),
+        Player(
+            6,
+            "Ryan Thunderstrike",
+            Position.DM,
+            Role.DEEP_LYING_PLAYMAKER_REGISTA,
+            Duty.SUPPORT,
+        ),
+        Player(7, "Ethan Swiftblade", Position.AM, Role.SHADOW_STRIKER, Duty.ATTACK),
         Player(8, "Oliver Stormrider", Position.RW, Role.WINGER, Duty.ATTACK),
         Player(9, "Benjamin Fireforge", Position.LW, Role.WINGER, Duty.ATTACK),
-        Player(10, "Alexander Ironfist", Position.ST, Role.STRIKER, Duty.ATTACK),
+        Player(
+            10, "Alexander Ironfist", Position.ST, Role.ADVANCED_FORWARD, Duty.ATTACK
+        ),
     ]
+
+    # Generate random attributes for each player
+    for player in home_players:
+        (technical, mental, physical, hidden, condition) = (
+            generate_player_attribute_groups(player.position, player.role)
+        )
+        player.technical = technical
+        player.mental = mental
+        player.physical = physical
+        player.hidden = hidden
+        player.condition = condition
+
     home = Team(
         name="Redchester United",
         formation="4-2-3-1",
@@ -61,13 +90,38 @@ def main():
         Player(13, "Mason Ironwood", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
         Player(14, "Logan Steelheart", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
         Player(15, "Ethan Greenfield", Position.LB, Role.FULL_BACK, Duty.SUPPORT),
-        Player(16, "Jacob Fireforge", Position.DM, Role.DEFENSIVE_MIDFIELDER, Duty.DEFEND),
-        Player(17, "William Swiftblade", Position.DM, Role.DEFENSIVE_MIDFIELDER, Duty.SUPPORT),
-        Player(18, "Michael Stormrider", Position.AM, Role.ATTACKING_MIDFIELDER, Duty.ATTACK),
+        Player(
+            16,
+            "Jacob Fireforge",
+            Position.DM,
+            Role.DEEP_LYING_PLAYMAKER_REGISTA,
+            Duty.DEFEND,
+        ),
+        Player(
+            17,
+            "William Swiftblade",
+            Position.DM,
+            Role.DEEP_LYING_PLAYMAKER_REGISTA,
+            Duty.SUPPORT,
+        ),
+        Player(18, "Michael Stormrider", Position.AM, Role.SHADOW_STRIKER, Duty.ATTACK),
         Player(19, "Alexander Ironfist", Position.RW, Role.WINGER, Duty.ATTACK),
         Player(20, "Daniel Thunderstrike", Position.LW, Role.WINGER, Duty.ATTACK),
-        Player(21, "Matthew Steelheart", Position.ST, Role.STRIKER, Duty.ATTACK),
+        Player(
+            21, "Matthew Steelheart", Position.ST, Role.ADVANCED_FORWARD, Duty.ATTACK
+        ),
     ]
+
+    for player in away_players:
+        (technical, mental, physical, hidden, condition) = (
+            generate_player_attribute_groups(player.position, player.role)
+        )
+        player.technical = technical
+        player.mental = mental
+        player.physical = physical
+        player.hidden = hidden
+        player.condition = condition
+
     away = Team(
         name="Bluechester City",
         formation="4-3-3",
