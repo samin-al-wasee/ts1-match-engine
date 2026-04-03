@@ -1,4 +1,7 @@
+from models.duty import Duty
 from models.player import Player
+from models.position import Position
+from models.role import Role
 from models.tactic import TeamTactic
 from models.team import Team
 from match_engine import Match
@@ -29,17 +32,17 @@ def main():
 
     # Create Home team
     home_players = [
-        Player(0, "Vancouver Derwin Server", "GK", "Goalkeeper", "Defend"),
-        Player(1, "Kyle Walkerstone", "RB", "Full Back", "Support"),
-        Player(2, "Michael Stoneman", "CB", "Central Defender", "Defend"),
-        Player(3, "David Ironwood", "CB", "Central Defender", "Defend"),
-        Player(4, "Lucas Greenfield", "LB", "Full Back", "Support"),
-        Player(5, "James Steelheart", "CDM", "Defensive Midfielder", "Defend"),
-        Player(6, "Ryan Thunderstrike", "CDM", "Defensive Midfielder", "Support"),
-        Player(7, "Ethan Swiftblade", "CAM", "Attacking Midfielder", "Attack"),
-        Player(8, "Oliver Stormrider", "RW", "Winger", "Attack"),
-        Player(9, "Benjamin Fireforge", "LW", "Winger", "Attack"),
-        Player(10, "Alexander Ironfist", "ST", "Striker", "Attack"),
+        Player(0, "Vancouver Derwin Server", Position.GK, Role.SHOT_STOPPER, Duty.DEFEND),
+        Player(1, "Kyle Walkerstone", Position.RB, Role.FULL_BACK, Duty.SUPPORT),
+        Player(2, "Michael Stoneman", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
+        Player(3, "David Ironwood", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
+        Player(4, "Lucas Greenfield", Position.LB, Role.FULL_BACK, Duty.SUPPORT),
+        Player(5, "James Steelheart", Position.DM, Role.ANCHOR_HOLDING_MIDFIELDER, Duty.DEFEND),
+        Player(6, "Ryan Thunderstrike", Position.DM, Role.DEFENSIVE_MIDFIELDER, Duty.SUPPORT),
+        Player(7, "Ethan Swiftblade", Position.AM, Role.ATTACKING_MIDFIELDER, Duty.ATTACK),
+        Player(8, "Oliver Stormrider", Position.RW, Role.WINGER, Duty.ATTACK),
+        Player(9, "Benjamin Fireforge", Position.LW, Role.WINGER, Duty.ATTACK),
+        Player(10, "Alexander Ironfist", Position.ST, Role.STRIKER, Duty.ATTACK),
     ]
     home = Team(
         name="Redchester United",
@@ -53,17 +56,17 @@ def main():
 
     # Create Away team
     away_players = [
-        Player(11, "Liam Thunderstone", "GK", "Goalkeeper", "Defend"),
-        Player(12, "Noah Stormblade", "RB", "Full Back", "Support"),
-        Player(13, "Mason Ironwood", "CB", "Central Defender", "Defend"),
-        Player(14, "Logan Steelheart", "CB", "Central Defender", "Defend"),
-        Player(15, "Ethan Greenfield", "LB", "Full Back", "Support"),
-        Player(16, "Jacob Fireforge", "CDM", "Defensive Midfielder", "Defend"),
-        Player(17, "William Swiftblade", "CDM", "Defensive Midfielder", "Support"),
-        Player(18, "Michael Stormrider", "CAM", "Attacking Midfielder", "Attack"),
-        Player(19, "Alexander Ironfist", "RW", "Winger", "Attack"),
-        Player(20, "Daniel Thunderstrike", "LW", "Winger", "Attack"),
-        Player(21, "Matthew Steelheart", "ST", "Striker", "Attack"),
+        Player(11, "Liam Thunderstone", Position.GK, Role.SHOT_STOPPER, Duty.DEFEND),
+        Player(12, "Noah Stormblade", Position.RB, Role.FULL_BACK, Duty.SUPPORT),
+        Player(13, "Mason Ironwood", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
+        Player(14, "Logan Steelheart", Position.CB, Role.CENTRAL_DEFENDER, Duty.DEFEND),
+        Player(15, "Ethan Greenfield", Position.LB, Role.FULL_BACK, Duty.SUPPORT),
+        Player(16, "Jacob Fireforge", Position.DM, Role.DEFENSIVE_MIDFIELDER, Duty.DEFEND),
+        Player(17, "William Swiftblade", Position.DM, Role.DEFENSIVE_MIDFIELDER, Duty.SUPPORT),
+        Player(18, "Michael Stormrider", Position.AM, Role.ATTACKING_MIDFIELDER, Duty.ATTACK),
+        Player(19, "Alexander Ironfist", Position.RW, Role.WINGER, Duty.ATTACK),
+        Player(20, "Daniel Thunderstrike", Position.LW, Role.WINGER, Duty.ATTACK),
+        Player(21, "Matthew Steelheart", Position.ST, Role.STRIKER, Duty.ATTACK),
     ]
     away = Team(
         name="Bluechester City",
