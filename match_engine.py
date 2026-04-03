@@ -1,5 +1,6 @@
 import random
 import time
+from typing import List
 from models.team import Team
 from debug.printer import (
     print_match_kickoff,
@@ -24,7 +25,7 @@ class Match:
         self.away_score = 0
         self.possession = {self.home_team.name: 50, self.away_team.name: 50}
         self.minute = 0
-        self.event_log = []
+        self.event_log: List[str] = []
 
     def start_match(self):
         """Print match start using Rich printer"""
