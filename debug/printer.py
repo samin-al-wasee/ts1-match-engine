@@ -34,10 +34,27 @@ def print_tactic_summary(team: Team):
     t = team.tactic
     content = (
         f"[bold]Mentality:[/bold] {t.mentality}\n"
-        f"[bold]Build-Up:[/bold] {t.build_up_style} | [bold]Tempo:[/bold] {t.tempo} | [bold]Width:[/bold] {t.width}\n"
-        f"[bold]Attacking Focus:[/bold] {t.attacking_focus}\n"
-        f"[bold]Defensive Line:[/bold] {t.defensive_line} | [bold]Pressing Intensity:[/bold] {t.pressing_intensity}\n"
-        f"[bold]Transition (Win):[/bold] {t.transition_on_win} | [bold]Transition (Loss):[/bold] {t.transition_on_loss}"
+        f"[bold]Build Up Style:[/bold] {t.build_up_style}\n"
+        f"[bold]Tempo:[/bold] {t.tempo}\n"
+        f"[bold]Width:[/bold] {t.width}\n"
+        f"[bold]Final Third Focus:[/bold] {t.final_third_focus}\n"
+        f"[bold]Passing Directness:[/bold] {t.passing_directness}\n"
+        f"[bold]Chance Creation Style:[/bold] {t.chance_creation_style}\n"
+        f"[bold]Crossing Style:[/bold] {t.crossing_style}\n"
+        f"[bold]Shooting Tendency:[/bold] {t.shooting_tendency}\n"
+        f"[bold]Dribbling Tendency:[/bold] {t.dribbling_tendency}\n"
+        f"[bold]Defensive Line:[/bold] {t.defensive_line}\n"
+        f"[bold]Pressing Intensity:[/bold] {t.pressing_intensity}\n"
+        f"[bold]Press Trigger:[/bold] {t.press_trigger}\n"
+        f"[bold]Defensive Width:[/bold] {t.defensive_width}\n"
+        f"[bold]Line Compactness:[/bold] {t.line_compactness}\n"
+        f"[bold]Marking Style:[/bold] {t.marking_style}\n"
+        f"[bold]Tackling Style:[/bold] {t.tackling_style}\n"
+        f"[bold]Transition On Win:[/bold] {t.transition_on_win}\n"
+        f"[bold]Transition On Loss:[/bold] {t.transition_on_loss}\n"
+        f"[bold]Counter Speed:[/bold] {t.counter_speed}\n"
+        f"[bold]Set Piece Attacking Style:[/bold] {t.set_piece_attacking_style}\n"
+        f"[bold]Set Piece Defensive Style:[/bold] {t.set_piece_defensive_style}"
     )
     print_panel(f"🛡️ TACTICAL SUMMARY - {team.name}", content)
 
