@@ -9,6 +9,12 @@ from debug.printer import (
     print_minute_marker,
 )
 
+from systems.tactical_identity_builder import TacticalIdentityBuilder
+
+
+def _clamp(x: float, lo: float, hi: float) -> float:
+    return max(lo, min(hi, x))
+
 
 class Match:
     def __init__(self, home_team: Team, away_team: Team):
@@ -28,23 +34,50 @@ class Match:
         """Simulate a single minute of the match"""
         self.minute += 1
 
-        # Randomly decide who has possession this minute
+        # --- Tactical Identity (V1) ---
+        # Convert tactics into small probability nudges for the current basic engine.
+        home_id = TacticalIdentityBuilder.build_v1(self.home_team.tactic)
+        away_id = TacticalIdentityBuilder.build_v1(self.away_team.tactic)
+
+        # --- Possession selection (tactically-shaped) ---
+        # Base weights come from current possession values, but we apply a small tilt.
+        # tilt is relative: home tilt up + away tilt down (and vice versa).
+        # Map possession_tilt (-0.20..+0.20) to at most about +/-10 possession points.
+        tilt_points = 50.0 * (home_id.possession_tilt - away_id.possession_tilt)
+        tilt_points = _clamp(tilt_points, -10.0, 10.0)
+
+        home_poss_w = max(
+            1.0, float(self.possession[self.home_team.name]) + tilt_points
+        )
+        away_poss_w = max(
+            1.0, float(self.possession[self.away_team.name]) - tilt_points
+        )
+
         poss_team = random.choices(
             [self.home_team, self.away_team],
-            weights=[
-                self.possession[self.home_team.name],
-                self.possession[self.away_team.name],
-            ],
+            weights=[home_poss_w, away_poss_w],
         )[0]
 
-        # Random event generation
-        event_type = random.choices(["pass", "turnover", "shot"], weights=[60, 30, 10])[
-            0
-        ]
+        # Determine which identity applies for event resolution
+        tid = home_id if poss_team == self.home_team else away_id
+
+        # --- Event generation (tactically-shaped) ---
+        # Base event weights reflect current engine defaults.
+        base_pass_w, base_turnover_w, base_shot_w = 60.0, 30.0, 10.0
+
+        pass_w = max(0.1, base_pass_w * tid.pass_weight_mult)
+        turnover_w = max(0.1, base_turnover_w * tid.turnover_weight_mult)
+        shot_w = max(0.1, base_shot_w * tid.shot_weight_mult)
+
+        event_type = random.choices(
+            ["pass", "turnover", "shot"],
+            weights=[pass_w, turnover_w, shot_w],
+        )[0]
 
         if event_type == "pass":
             player = random.choice(poss_team.starting_xi)
             event = f"🟢 {player.name} completes a pass."
+
         elif event_type == "turnover":
             player = random.choice(poss_team.starting_xi)
             event = f"🔴 {player.name} loses the ball."
@@ -54,9 +87,14 @@ class Match:
             )
             self.possession[poss_team.name] -= 5
             self.possession[other_team.name] += 5
+
         else:  # shot
             player = random.choice(poss_team.starting_xi)
-            scored = random.choices([True, False], weights=[30, 70])[0]
+
+            # Base goal probability is 0.30 in current engine; apply tactical delta and clamp.
+            goal_prob = _clamp(0.30 + tid.shot_conversion_delta, 0.05, 0.60)
+            scored = random.random() < goal_prob
+
             if scored:
                 event = f"⚽ GOAL! {player.name} scores for {poss_team.name}!"
                 if poss_team == self.home_team:
