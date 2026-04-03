@@ -63,17 +63,27 @@ def print_starting_xi(team: Team):
 # Player Details
 # -------------------------
 def print_player_details(team: Team):
+    def _fmt_items(title: str, items: dict) -> str:
+        if not items:
+            return f"[bold]{title}:[/bold] (none)"
+        lines = "\n".join(f"• {k}: {v}" for k, v in sorted(items.items()))
+        return f"[bold]{title}:[/bold]\n{lines}"
+
     for p in team.starting_xi:
-        tech = ", ".join(f"{k}:{v}" for k, v in p.technical.items())
-        mental = ", ".join(f"{k}:{v}" for k, v in p.mental.items())
-        phys = ", ".join(f"{k}:{v}" for k, v in p.physical.items())
+        tech_block = _fmt_items("Technical", getattr(p, "technical", {}))
+        mental_block = _fmt_items("Mental", getattr(p, "mental", {}))
+        phys_block = _fmt_items("Physical", getattr(p, "physical", {}))
+        condition_block = _fmt_items("Condition", getattr(p, "condition", {}))
+        hidden_block = _fmt_items("Hidden", getattr(p, "hidden", {}))
 
         content = (
-            f"[bold]Technical:[/bold] {tech}\n"
-            f"[bold]Mental:[/bold] {mental}\n"
-            f"[bold]Physical:[/bold] {phys}\n"
-            f"[bold]Stamina:[/bold] {p.stamina} | [bold]Morale:[/bold] {p.morale} | [bold]Sharpness:[/bold] {p.sharpness}"
+            f"{tech_block}\n\n"
+            f"{mental_block}\n\n"
+            f"{phys_block}\n\n"
+            f"{condition_block}\n\n"
+            f"{hidden_block}"
         )
+
         print_panel(f"👤 {p.name} ({p.position}) - {p.role} [{p.duty}]", content)
 
 
