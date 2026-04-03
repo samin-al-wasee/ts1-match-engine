@@ -1,6 +1,13 @@
 import random
 import time
 from models.team import Team
+from debug.printer import (
+    print_match_kickoff,
+    print_match_event,
+    print_match_summary,
+    print_full_time,
+    print_minute_marker,
+)
 
 
 class Match:
@@ -14,14 +21,8 @@ class Match:
         self.event_log = []
 
     def start_match(self):
-        print(f"🏟️ Match: {self.home_team.name} vs {self.away_team.name}")
-        print(
-            f"Starting XI - {self.home_team.name}: {[p.name for p in self.home_team.starting_xi]}"
-        )
-        print(
-            f"Starting XI - {self.away_team.name}: {[p.name for p in self.away_team.starting_xi]}"
-        )
-        print("Kickoff! ⚽\n")
+        """Print match start using Rich printer"""
+        print_match_kickoff(self.home_team, self.away_team)
 
     def simulate_minute(self):
         """Simulate a single minute of the match"""
@@ -47,7 +48,7 @@ class Match:
         elif event_type == "turnover":
             player = random.choice(poss_team.starting_xi)
             event = f"🔴 {player.name} loses the ball."
-            # Optionally switch possession
+            # Switch possession
             other_team = (
                 self.away_team if poss_team == self.home_team else self.home_team
             )
@@ -66,29 +67,38 @@ class Match:
                 event = f"🔹 {player.name} takes a shot, saved by the keeper."
 
         self.event_log.append(f"{self.minute}' {event}")
+        # Use Rich printer for event
+        print_match_event(self.minute, event)
 
     def simulate_match(self, total_minutes=90, display_interval=10):
         """Run the full match simulation"""
+
         self.start_match()
         while self.minute < total_minutes:
             self.simulate_minute()
+
+            # Print minute markers for key intervals
+            if self.minute in [15, 30, 45, 60, 75]:
+                print_minute_marker(self.minute)
+
             if self.minute % display_interval == 0 or self.minute == total_minutes:
                 self.print_summary()
-                time.sleep(0.1)  # pause for readability
+                time.sleep(0.1)
 
-        print("\n🏁 Full Time!")
+        print_full_time(
+            self.home_team.name, self.away_team.name, self.home_score, self.away_score
+        )
         self.print_summary()
 
     def print_summary(self):
-        print("\n📝 Match Summary")
-        print(f"Minute: {self.minute}")
-        print(
-            f"Score: {self.home_team.name} {self.home_score} - {self.away_score} {self.away_team.name}"
+        """Print match summary using Rich printer"""
+        print_match_summary(
+            self.minute,
+            self.home_score,
+            self.away_score,
+            self.home_team.name,
+            self.away_team.name,
+            self.possession[self.home_team.name],
+            self.possession[self.away_team.name],
+            self.event_log[-5:],
         )
-        print(
-            f"Possession: {self.home_team.name} {self.possession[self.home_team.name]}% | "
-            f"{self.away_team.name} {self.possession[self.away_team.name]}%"
-        )
-        print("Recent Events:")
-        for event in self.event_log[-5:]:
-            print(f" - {event}")

@@ -81,9 +81,7 @@ def print_player_details(team: Team):
 # Team Strength Profile
 # -------------------------
 def print_strength_profile(profile):
-    table = Table(
-        title="Team Strength Profile 💪", box=box.ROUNDED
-    )
+    table = Table(title="Team Strength Profile 💪", box=box.ROUNDED)
     table.add_column("Attribute")
     table.add_column("Value", justify="right")
 
@@ -92,3 +90,152 @@ def print_strength_profile(profile):
         table.add_row(attr, f"[{color}]{value:.1f}[/{color}]")
 
     console.print(table)
+
+
+# -------------------------
+# Match Printing Functions (Rich with Emojis)
+# -------------------------
+def print_match_kickoff(home_team: Team, away_team: Team):
+    """Print match start information using Rich with emojis"""
+    # Main match panel
+    match_panel = Panel(
+        f"[bold yellow]🏟️ {home_team.name} 🆚 {away_team.name}[/bold yellow]\n\n"
+        f"[cyan]📋 Starting XI - {home_team.name}:[/cyan]\n"
+        f"👕 {', '.join([p.name for p in home_team.starting_xi])}\n\n"
+        f"[cyan]📋 Starting XI - {away_team.name}:[/cyan]\n"
+        f"👕 {', '.join([p.name for p in away_team.starting_xi])}\n\n"
+        f"[dim]⚙️ Formation: {home_team.formation} 🆚 {away_team.formation}[/dim]",
+        title="[bold green]⚽ 🎬 MATCH START 🎬 ⚽[/bold green]",
+        box=box.DOUBLE,
+        style="bold",
+    )
+    console.print(match_panel)
+    console.print("[bold green]🎯 Kickoff! ⏰⚽[/bold green]\n")
+    console.print("[dim]🎶 Crowd cheering loudly! 📣[/dim]\n")
+
+
+def print_match_event(minute: int, event: str):
+    """Print a single match event with Rich formatting and emojis"""
+    # Color-code and emoji-enhance different event types
+    if "GOAL" in event:
+        styled_event = f"[bold red]🎉⚽🔥 {event} 🔥⚽🎉[/bold red]"
+    elif "🔴" in event:
+        styled_event = f"[red]😤💔 {event} 💔😤[/red]"
+    elif "🟢" in event:
+        styled_event = f"[green]🎯✅ {event} ✅🎯[/green]"
+    elif "shot" in event and "saved" in event:
+        styled_event = f"[yellow]🧤💪 {event} 💪🧤[/yellow]"
+    else:
+        styled_event = f"[yellow]⚡ {event} ⚡[/yellow]"
+
+    # Add minute with clock emoji
+    clock_emoji = "⏱️" if minute % 15 == 0 else "⏲️"
+    console.print(f"[dim]{clock_emoji} {minute}'[/dim] {styled_event}")
+
+
+def print_match_summary(
+    minute: int,
+    home_score: int,
+    away_score: int,
+    home_team_name: str,
+    away_team_name: str,
+    home_possession: int,
+    away_possession: int,
+    recent_events: list,
+):
+    """Print match summary using Rich Table with emojis"""
+    # Score table with trophy emojis
+    score_table = Table(title=f"📊📈 Match Summary - {minute}' ⏰", box=box.ROUNDED)
+    score_table.add_column("🏷️ Team", style="bold cyan")
+    score_table.add_column("⚽ Score", style="bold", justify="center")
+    score_table.add_column("🎯 Possession", justify="right")
+    score_table.add_column("📊 Form", justify="center")
+
+    # Add form indicators
+    home_form = "📈" if home_possession > 50 else "📉" if home_possession < 50 else "➡️"
+    away_form = "📈" if away_possession > 50 else "📉" if away_possession < 50 else "➡️"
+
+    score_table.add_row(
+        f"🏠 {home_team_name}",
+        f"[bold green]{home_score}[/bold green]",
+        f"{home_possession}%",
+        home_form,
+    )
+    score_table.add_row(
+        f"✈️ {away_team_name}",
+        f"[bold green]{away_score}[/bold green]",
+        f"{away_possession}%",
+        away_form,
+    )
+
+    console.print(score_table)
+
+    # Recent events panel with emojis
+    events_text = "\n".join([f"• {e}" for e in recent_events[-5:]])
+    events_panel = Panel(
+        events_text,
+        title="[bold]🔄 Recent Events 🔄[/bold]",
+        box=box.MINIMAL,
+        style="dim",
+    )
+    console.print(events_panel)
+
+    # Add stat indicators
+    console.print("[dim]🟢 Passes | 🔴 Turnovers | ⚽ Shots | 🎯 Goals[/dim]\n")
+
+
+def print_full_time(
+    home_team_name: str, away_team_name: str, home_score: int, away_score: int
+):
+    """Print full time result with Rich highlighting and emojis"""
+    # Determine winner with emojis
+    if home_score > away_score:
+        result = f"🏆🎉👑 {home_team_name} wins the match! 👑🎉🏆"
+        result_style = "bold green"
+        celebration = "🎊🥳🎈"
+    elif away_score > home_score:
+        result = f"🏆🎉👑 {away_team_name} wins the match! 👑🎉🏆"
+        result_style = "bold green"
+        celebration = "🎊🥳🎈"
+    else:
+        result = "🤝 It's a draw! 🤝"
+        result_style = "bold yellow"
+        celebration = "😐🤷"
+
+    # Calculate total goals
+    total_goals = home_score + away_score
+    goal_emoji = "⚽" * min(total_goals, 5) + ("⚽" if total_goals > 5 else "")
+
+    full_time_panel = Panel(
+        f"[bold]{home_team_name}[/bold] [bold cyan]{home_score}[/bold cyan] 🆚 "
+        f"[bold cyan]{away_score}[/bold cyan] [bold]{away_team_name}[/bold]\n\n"
+        f"[{result_style}]{result}[/{result_style}]\n\n"
+        f"[dim]{goal_emoji} Total Goals: {total_goals} {goal_emoji}[/dim]\n"
+        f"{celebration}",
+        title="[bold red]🏁🔚 FULL TIME 🔚🏁[/bold red]",
+        box=box.DOUBLE,
+        style="bold",
+    )
+    console.print(full_time_panel)
+
+    # Print match rating
+    if total_goals >= 5:
+        console.print("[bold green]🌟⭐ Match Rating: Exciting! ⭐🌟[/bold green]")
+    elif total_goals >= 3:
+        console.print("[bold yellow]👍 Match Rating: Entertaining! 👍[/bold yellow]")
+    else:
+        console.print("[dim]😴 Match Rating: Defensive battle... 😴[/dim]")
+
+
+def print_minute_marker(minute: int):
+    """Print a minute marker for key intervals"""
+    if minute == 15:
+        console.print("\n[dim]⏰ 🟢 15' - Quarter hour mark 🟢 ⏰[/dim]\n")
+    elif minute == 30:
+        console.print("\n[dim]⏰ 🟡 30' - Half hour mark 🟡 ⏰[/dim]\n")
+    elif minute == 45:
+        console.print("\n[bold yellow]⏰ 🟠 Half Time! 🟠 ⏰[/bold yellow]\n")
+    elif minute == 60:
+        console.print("\n[dim]⏰ 🔵 60' - Hour mark 🔵 ⏰[/dim]\n")
+    elif minute == 75:
+        console.print("\n[dim]⏰ 🟣 75' - Final quarter 🟣 ⏰[/dim]\n")
