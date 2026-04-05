@@ -1,5 +1,11 @@
 from models.team import Team
 from models.team_strength import TeamStrengthProfile
+from models.tactic_attributes import (
+    BuildUpStyle,
+    TransitionOnWin,
+    PressingIntensity,
+    Width,
+)
 
 
 class StrengthCalculator:
@@ -139,36 +145,36 @@ class StrengthCalculator:
 
     @staticmethod
     def _build_up_modifier(team: Team) -> float:
-        if team.tactic.build_up_style == "Build From Back":
+        if team.tactic.build_up_style == BuildUpStyle.BUILD_FROM_BACK:
             return 5.0
-        if team.tactic.build_up_style == "Long Ball":
+        if team.tactic.build_up_style == BuildUpStyle.LONG_BALL:
             return -3.0
         return 0.0
 
     @staticmethod
     def _width_modifier(team: Team) -> float:
-        if team.tactic.width == "Wide":
+        if team.tactic.width == Width.WIDE:
             return 4.0
-        if team.tactic.width == "Very Wide":
+        if team.tactic.width == Width.VERY_WIDE:
             return 6.0
-        if team.tactic.width == "Narrow":
+        if team.tactic.width == Width.NARROW:
             return -2.0
         return 0.0
 
     @staticmethod
     def _transition_modifier(team: Team) -> float:
-        if team.tactic.transition_on_win == "Counter Immediately":
+        if team.tactic.transition_on_win == TransitionOnWin.COUNTER_IMMEDIATELY:
             return 5.0
-        if team.tactic.transition_on_win == "Hold Shape":
+        if team.tactic.transition_on_win == TransitionOnWin.RESET_SHAPE:
             return -2.0
         return 0.0
 
     @staticmethod
     def _pressing_modifier(team: Team) -> float:
-        if team.tactic.pressing_intensity == "High":
+        if team.tactic.pressing_intensity == PressingIntensity.HIGH:
             return 5.0
-        if team.tactic.pressing_intensity == "Extreme":
+        if team.tactic.pressing_intensity == PressingIntensity.VERY_HIGH:
             return 8.0
-        if team.tactic.pressing_intensity == "Low":
+        if team.tactic.pressing_intensity == PressingIntensity.LOW:
             return -3.0
         return 0.0
