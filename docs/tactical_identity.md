@@ -1,225 +1,599 @@
-# Tactical Identity (V1) — Engine Bias Layer
+# Tactical Identity — Engine Bias Layer (Full Catalog + V1 Wiring)
 
-This document defines the **Team Tactical Identity Layer** for V1 of the match engine.
+This document defines the **Team Tactical Identity Layer**: a deterministic conversion from **`TeamTactic`** (manager instructions; see `docs/tactic.md`) into a set of **engine-facing bias/modifier values**.
 
-## Goal (V1)
+Goals:
 
-Convert a `TeamTactic` (manager instructions) into a small set of **engine-facing bias values** that affect the *existing basic engine loop* in `match_engine.py`:
-
-- Who tends to have possession (possession tilt)
-- What kinds of events are more likely (pass vs turnover vs shot)
-- Whether a shot is more/less likely to become a goal
-
-> V1 scope note: This **does not** implement the full contest/phase/route system described in `CONCEPT.md` yet.
-> It only makes the current random minute simulation **tactically shaped**, instead of purely random.
+- Keep inputs **fixed-options** (no free text).
+- Make tactics influence simulation by **modifying probabilities**, not forcing outcomes.
+- Provide a **complete modifier catalog** so every `TeamTactic` attribute has a “home” (even if not yet wired into the engine).
 
 ---
 
-## Where these biases are used
+## Naming + inputs
 
-Current engine behavior (today):
-
-- Possession team is picked each minute using `self.possession` weights
-- Event type is picked from `["pass", "turnover", "shot"]` with weights `[60, 30, 10]`
-- Shot scoring is picked with weights `[30, 70]` (goal vs no goal)
-
-V1 tactical identity will:
-
-- Apply a tactical adjustment to the possession weights
-- Generate adjusted event weights (pass/turnover/shot)
-- Generate adjusted shot conversion chance (goal probability)
+- `TeamTactic` option values are **canonical `snake_case`** and must match `docs/tactic.md`.
+- UI labels may be Title Case, but the engine/model should use canonical values.
 
 ---
 
-## Tactical Identity (V1): bias fields
+## Two levels of tactical identity
 
-All bias fields are intended to be **small adjustments** (not forced outcomes).
-They should typically be applied as deltas to base weights or probabilities, then clamped.
+### `TacticalIdentityV1` (wired today)
 
-### 1) possession_tilt
+V1 is designed to shape the current basic loop in `match_engine.py`:
 
-**Type:** float (range: `-0.20 .. +0.20`)
+- possession choice per minute
+- event choice per minute: `pass` / `turnover` / `shot`
+- goal probability when a shot occurs
 
-**Meaning:** How much this team’s tactics tend to increase their share of possession *relative to the opponent*.
+**V1-wired outputs:**
 
-- Positive → more possession
-- Negative → less possession / more direct / more transition
+- `possession_tilt` (`-0.20 .. +0.20`)
+- `pass_weight_mult` (`0.80 .. 1.20`)
+- `turnover_weight_mult` (`0.80 .. 1.20`)
+- `shot_weight_mult` (`0.80 .. 1.25`)
+- `shot_conversion_delta` (`-0.10 .. +0.10`)
 
-**Typical influences (examples):**
+### `TacticalIdentity` (full catalog; some not wired yet)
 
-- build-up style ("Build From Back") → positive
-- tempo ("High") → slightly negative (more volatility)
-- pressing intensity ("High") → slightly positive (more regains)
-- mentality ("Balanced"/"Positive") → small positive
+This is the Concept-aligned Layer 1 identity (see `CONCEPT.md`), intended to power future mechanics:
 
-**How to apply (V1):**
+- route selection (left/right/central)
+- chance type selection (cross/cutback/through-ball/long shot)
+- pressing triggers & regains
+- transitions (counter vs hold; counter speed)
+- defensive shape (line height, compactness, width)
+- set-piece tendencies
 
-- Convert tilt into a small shift (e.g., ±5–10 points max) when computing minute possession weights.
-- Example: base possession is `[50, 50]`. A tilt of `+0.10` might become `+5` possession points.
-
-### 2) pass_weight_mult
-
-**Type:** float (range: `0.80 .. 1.20`)
-
-**Meaning:** Multiplier applied to the base probability weight of the `"pass"` event.
-
-- > 1.0 → more passing events
-- < 1.0 → fewer passing events
-
-**Typical influences:**
-
-- Build From Back → increase
-- Lower tempo → increase
-- Narrow/Wide could slightly increase (more structured possession) but keep V1 minimal
-
-### 3) turnover_weight_mult
-
-**Type:** float (range: `0.80 .. 1.20`)
-
-**Meaning:** Multiplier applied to the base probability weight of the `"turnover"` event.
-
-- > 1.0 → more turnovers
-- < 1.0 → fewer turnovers
-
-**Typical influences:**
-
-- Higher tempo → increase (riskier)
-- Extreme pressing → increase (more chaotic)
-- Build From Back + composure style (future) → decrease (not in V1)
-
-> V1 note: The engine does not yet model *who forces* the turnover.
-> This multiplier only shapes frequency, not causal attribution.
-
-### 4) shot_weight_mult
-
-**Type:** float (range: `0.80 .. 1.25`)
-
-**Meaning:** Multiplier applied to the base probability weight of the `"shot"` event.
-
-- > 1.0 → more shots per minute
-- < 1.0 → fewer shots per minute
-
-**Typical influences:**
-
-- Attacking focus ("Attack Left"/etc.) doesn’t matter in current engine → ignore in V1
-- Mentality more attacking → increase slightly
-- Tempo high → increase slightly
-
-### 5) shot_conversion_delta
-
-**Type:** float (range: `-0.10 .. +0.10`)
-
-**Meaning:** Delta applied to the base goal probability when a `"shot"` occurs.
-
-Current base goal chance is 0.30 (30%).
-
-- Positive → more goals per shot
-- Negative → fewer goals per shot
-
-**Typical influences:**
-
-- Mentality more attacking → slight increase
-- Tempo high → slight decrease (worse shot quality) or slight increase (more chaotic) — choose one and document it in code when implemented
-- Build From Back could slightly decrease (fewer direct high-xG chances) — optional
-
-**How to apply (V1):**
-
-- `goal_prob = clamp(0.30 + shot_conversion_delta, 0.05, 0.60)` (example clamp)
+> Policy: **Every `TeamTactic` attribute must map to at least one modifier** in this catalog.  
+> Wiring into the engine happens separately and can be incremental.
 
 ---
 
-## Baseline event weights (V1)
+## Core math helpers (recommended)
 
-The current engine uses:
+### Normalize discrete options into a numeric “strength”
+
+For many fields we map categorical options to a scalar in `[-1, +1]` or `[0, 1]`.
+
+**Example helper:**
+
+- `scale_5(x)` for 5-level options (very_low..very_high):
+  - `very_low = -1.0`
+  - `low = -0.5`
+  - `standard/balanced = 0.0`
+  - `high = +0.5`
+  - `very_high = +1.0`
+
+- `scale_3(x)` for 3-level options:
+  - low/rarely/cautious = -1.0
+  - standard/situational/normal = 0.0
+  - high/often/aggressive = +1.0
+
+### Clamp
+
+All modifiers should be clamped to their documented range after calculation.
+
+---
+
+## Modifier catalog (complete) + calculation logic
+
+### A) Possession + tempo/risk (V1-wired partially)
+
+#### `possession_tilt` (V1-wired)
+
+**Range:** `-0.20 .. +0.20`  
+**Meaning:** net tendency to have more/less possession relative to opponent.
+
+**Formula (suggested V1+future-safe):**
+
+```
+possession_tilt =
+  + 0.08 * build_up_style_factor
+  + 0.04 * ( - tempo_factor )
+  + 0.05 * pressing_intensity_factor
+  + 0.03 * mentality_control_factor
+```
+
+Where:
+
+- `build_up_style_factor` in `[-1,+1]`:
+  - `build_from_back = +1.0`
+  - `mixed_build_up = +0.3`
+  - `direct_build_up = -0.3`
+  - `long_ball = -1.0`
+- `tempo_factor` uses `scale_5(tempo)` with `tempo` ∈ {`very_low`,`low`,`balanced`,`high`,`very_high`}
+- `pressing_intensity_factor` uses `scale_5(pressing_intensity)`
+- `mentality_control_factor` in `[-1,+1]` (control vs chaos):
+  - `ultra_defensive=+0.6`, `defensive=+0.4`, `balanced=0.0`, `positive=+0.2`, `attacking=-0.2`, `ultra_attacking=-0.4`
+
+Clamp to `[-0.20, +0.20]`.
+
+---
+
+#### `risk_taking` (future)
+
+**Range:** `0.0 .. 1.0`  
+**Meaning:** overall willingness to accept turnover risk for faster progression.
+
+**Contributors:**
+
+- `tempo` (higher => more risk)
+- `passing_directness` (more direct => more risk)
+- `mentality` (more attacking => more risk)
+- `chance_creation_style=fast_vertical` => more risk
+
+**Formula:**
+
+```
+risk_taking =
+  clamp01( 0.50
+    + 0.18 * tempo_factor
+    + 0.16 * passing_directness_factor
+    + 0.12 * mentality_attack_factor
+    + 0.08 * chance_creation_risk_factor
+  )
+```
+
+Where:
+
+- `passing_directness_factor` in `[-1,+1]`:
+  - `very_short=-1.0`, `short=-0.5`, `mixed=0.0`, `direct=+0.5`, `very_direct=+1.0`
+- `mentality_attack_factor` in `[-1,+1]` (attack-mindedness):
+  - `ultra_defensive=-1.0`, `defensive=-0.5`, `balanced=0.0`, `positive=+0.3`, `attacking=+0.6`, `ultra_attacking=+1.0`
+- `chance_creation_risk_factor` in `[-1,+1]`:
+  - `patient_combinations=-0.6`
+  - `mixed=0.0`
+  - `fast_vertical=+0.8`
+  - `second_balls=+0.4`
+  - `wide_overloads=+0.2`
+  - `isolations_1v1=+0.3`
+
+---
+
+### B) V1 event weights (V1-wired)
+
+Baseline engine weights:
 
 - pass: 60
 - turnover: 30
 - shot: 10
 
-V1 tactical identity modifies weights via multipliers, then renormalizes:
+#### `pass_weight_mult` (V1-wired)
+
+**Range:** `0.80 .. 1.20`
+
+**Formula:**
 
 ```
-pass_weight     = 60 * pass_weight_mult
-turnover_weight = 30 * turnover_weight_mult
-shot_weight     = 10 * shot_weight_mult
+pass_weight_mult =
+  clamp(1.0
+    + 0.08 * build_up_style_pass_factor
+    - 0.05 * passing_directness_factor
+    - 0.05 * tempo_factor
+    + 0.03 * mentality_control_factor
+  , 0.80, 1.20)
 ```
 
-Then pass these 3 weights into `random.choices`.
+Contributors:
+
+- `build_up_style` (build-from-back increases passing volume)
+- `passing_directness` (more direct => fewer passes)
+- `tempo` (higher => fewer “safe pass” minutes)
+- `mentality` (more control => more passes)
 
 ---
 
-## Mapping `TeamTactic` → TacticalIdentityV1 (V1 rules)
+#### `turnover_weight_mult` (V1-wired)
 
-V1 mapping should be **simple, deterministic, and easy to tune**.
+**Range:** `0.80 .. 1.20`
 
-Suggested initial mappings:
+**Formula:**
 
-### build_up_style
+```
+turnover_weight_mult =
+  clamp(1.0
+    + 0.08 * tempo_factor
+    + 0.06 * pressing_intensity_factor
+    + 0.05 * passing_directness_factor
+    + 0.04 * dribbling_factor
+    + 0.03 * tackling_aggression_factor
+  , 0.80, 1.20)
+```
 
-- "Build From Back"
-  - possession_tilt += +0.08
-  - pass_weight_mult += +0.08
-  - turnover_weight_mult += -0.03
-  - shot_weight_mult += -0.02
-- "Long Ball"
-  - possession_tilt += -0.10
-  - pass_weight_mult += -0.06
-  - turnover_weight_mult += +0.05
-  - shot_weight_mult += +0.06
+Contributors:
 
-### tempo
+- `tempo` (riskier)
+- `pressing_intensity` and `tackling_style` (more chaos)
+- `passing_directness` (more 50/50 balls)
+- `dribbling_tendency` (more 1v1 take-ons => more turnovers)
 
-- "High"
-  - possession_tilt += -0.03
-  - turnover_weight_mult += +0.06
-  - shot_weight_mult += +0.04
-  - shot_conversion_delta += -0.02
-- "Low"
-  - possession_tilt += +0.03
-  - turnover_weight_mult += -0.05
-  - pass_weight_mult += +0.05
-  - shot_weight_mult += -0.02
-  - shot_conversion_delta += +0.01
+Where:
 
-### pressing_intensity
-
-- "High"
-  - possession_tilt += +0.04
-  - turnover_weight_mult += +0.03
-- "Extreme"
-  - possession_tilt += +0.06
-  - turnover_weight_mult += +0.06
-  - shot_weight_mult += +0.02
-  - shot_conversion_delta += -0.01 (fatigue/chaos tradeoff)
-- "Low"
-  - possession_tilt += -0.04
-
-### mentality
-
-- "Balanced"
-  - no change
-- "Positive"
-  - shot_weight_mult += +0.06
-  - shot_conversion_delta += +0.02
-- "Defensive"
-  - shot_weight_mult += -0.05
-  - shot_conversion_delta += -0.01
-  - possession_tilt += +0.02 (more control) OR -0.02 (more ceding) — pick one in implementation
-
-> V1 note: `width`, `attacking_focus`, `transition_on_win`, `transition_on_loss`, `defensive_line`
-> are not used in the current `match_engine.py` event loop. We will not map them in V1 to avoid fake complexity.
+- `dribbling_factor` uses `scale_3(dribbling_tendency)` with {`rarely`,`situational`,`often`}
+- `tackling_aggression_factor` uses `scale_3(tackling_style)` with {`cautious`,`normal`,`aggressive`}
 
 ---
 
-## Implementation plan (next tasks in issue #11)
+#### `shot_weight_mult` (V1-wired)
 
-1. Add a new model:
-   - `models/tactical_identity.py` with `@dataclass TacticalIdentityV1`
-2. Add a builder:
-   - `systems/tactical_identity_builder.py` to compute `TacticalIdentityV1` from `TeamTactic`
-3. Refactor `match_engine.py`:
-   - Apply possession tilt and event weight multipliers in `simulate_minute()`
-   - Apply `shot_conversion_delta` for shot resolution
-4. Add tests:
-   - Ensure stable mapping outputs for known tactic combinations
-   - Ensure weight application stays within clamps and doesn’t produce negative weights
+**Range:** `0.80 .. 1.25`
+
+**Formula:**
+
+```
+shot_weight_mult =
+  clamp(1.0
+    + 0.10 * mentality_attack_factor
+    + 0.06 * tempo_factor
+    + 0.05 * shooting_tendency_factor
+    + 0.04 * final_third_shot_factor
+  , 0.80, 1.25)
+```
+
+Where:
+
+- `shooting_tendency_factor` in `[-1,+1]`:
+  - `work_ball_into_box=-0.8`
+  - `mixed_shooting=0.0`
+  - `shoot_on_sight=+0.8`
+- `final_third_shot_factor` in `[-1,+1]`:
+  - `shooting_focus=+0.7`
+  - `dribble_focus=+0.2`
+  - `through_ball_focus=+0.1`
+  - `mixed=0.0`
+  - `crossing_focus=-0.1`
+  - `cutback_focus=-0.1`
+
+---
+
+#### `shot_conversion_delta` (V1-wired)
+
+**Range:** `-0.10 .. +0.10`  
+**Meaning:** delta applied to base goal probability (base currently ~0.30).
+
+**Formula:**
+
+```
+shot_conversion_delta =
+  clamp(
+    + 0.03 * mentality_attack_factor
+    - 0.03 * tempo_factor
+    + 0.03 * shot_patience_factor
+    + 0.02 * chance_creation_quality_factor
+  , -0.10, +0.10)
+```
+
+Where:
+
+- `shot_patience_factor` in `[-1,+1]`:
+  - derived from `shooting_tendency`
+  - `work_ball_into_box = +1.0`
+  - `mixed_shooting = 0.0`
+  - `shoot_on_sight = -1.0`
+- `chance_creation_quality_factor` in `[-1,+1]`:
+  - `patient_combinations=+0.5`
+  - `wide_overloads=+0.2`
+  - `mixed=0.0`
+  - `fast_vertical=-0.1` (more rushed shots)
+  - `second_balls=-0.2` (scrappy)
+  - `isolations_1v1=+0.1`
+
+> Note: this is still a simplification; future engine should compute xG-like quality per chance type.
+
+---
+
+### C) Route + chance-type biases (future, but fully specified)
+
+These modifiers are intended for:
+
+- selecting attack route (left/right/central)
+- selecting chance type (cross/cutback/through ball/long shot/dribble)
+
+All are recommended `0..1` and should be renormalized where appropriate.
+
+#### `width_bias`
+
+**Range:** `0..1` (0=narrow, 1=very_wide)
+
+Derived from `width`:
+
+- `very_narrow=0.0`, `narrow=0.25`, `balanced=0.5`, `wide=0.75`, `very_wide=1.0`
+
+---
+
+#### `attack_left_bias`, `attack_central_bias`, `attack_right_bias` (optional future)
+
+If you don’t have side-specific inputs yet, default these evenly:
+
+- `attack_left_bias = attack_right_bias = (1 - central_preference)/2`
+- `attack_central_bias = central_preference`
+
+Where `central_preference` can be derived from:
+
+- narrow width => more central
+- through_ball focus => more central
+- crossing focus => less central
+
+---
+
+#### `through_ball_bias`
+
+**Range:** `0..1`
+
+Contributors:
+
+- `final_third_focus=through_ball_focus`
+- `chance_creation_style=fast_vertical`
+- narrower `width`
+
+Formula:
+
+```
+through_ball_bias =
+  clamp01( 0.35
+    + 0.35 * is(final_third_focus == through_ball_focus)
+    + 0.15 * is(chance_creation_style == fast_vertical)
+    + 0.10 * (1 - width_bias)
+    + 0.05 * passing_directness_factor_positive
+  )
+```
+
+---
+
+#### `cross_bias`
+
+**Range:** `0..1`
+
+Contributors:
+
+- `final_third_focus=crossing_focus`
+- `crossing_style`
+- wider `width`
+- `chance_creation_style=wide_overloads`
+
+Formula:
+
+```
+cross_bias =
+  clamp01( 0.30
+    + 0.35 * is(final_third_focus == crossing_focus)
+    + 0.15 * crossing_style_factor
+    + 0.15 * width_bias
+    + 0.10 * is(chance_creation_style == wide_overloads)
+  )
+```
+
+Where `crossing_style_factor` in `[0..1]`:
+
+- `early_crosses=0.8`, `mixed_crosses=0.5`, `byline_cutbacks=0.2`
+
+---
+
+#### `cutback_bias`
+
+**Range:** `0..1`
+
+Contributors:
+
+- `final_third_focus=cutback_focus`
+- `crossing_style=byline_cutbacks`
+- dribbling tendency (to reach byline)
+
+Formula:
+
+```
+cutback_bias =
+  clamp01( 0.25
+    + 0.40 * is(final_third_focus == cutback_focus)
+    + 0.20 * is(crossing_style == byline_cutbacks)
+    + 0.10 * dribbling_factor_positive
+    + 0.05 * width_bias
+  )
+```
+
+---
+
+#### `dribble_creation_bias`
+
+**Range:** `0..1`
+
+Contributors:
+
+- `final_third_focus=dribble_focus`
+- `chance_creation_style=isolations_1v1`
+- `dribbling_tendency`
+
+Formula:
+
+```
+dribble_creation_bias =
+  clamp01( 0.25
+    + 0.35 * is(final_third_focus == dribble_focus)
+    + 0.20 * is(chance_creation_style == isolations_1v1)
+    + 0.20 * dribbling_factor_positive
+  )
+```
+
+---
+
+#### `long_shot_bias`
+
+**Range:** `0..1`
+
+Contributors:
+
+- `final_third_focus=shooting_focus`
+- `shooting_tendency=shoot_on_sight`
+- `chance_creation_style=second_balls` (scrappy shooting)
+
+Formula:
+
+```
+long_shot_bias =
+  clamp01( 0.20
+    + 0.40 * is(final_third_focus == shooting_focus)
+    + 0.25 * is(shooting_tendency == shoot_on_sight)
+    + 0.10 * is(chance_creation_style == second_balls)
+  )
+```
+
+---
+
+### D) Defensive shape + pressing (future, but formulas specified)
+
+#### `defensive_line_height`
+
+**Range:** `0..1` (0=very_deep, 1=very_high)
+
+Derived from `defensive_line`:
+
+- `very_deep=0.0`, `deep=0.25`, `standard=0.5`, `high=0.75`, `very_high=1.0`
+
+---
+
+#### `press_intensity_bias`
+
+**Range:** `0..1`
+
+Derived from `pressing_intensity`:
+
+- `very_low=0.0`, `low=0.25`, `standard=0.5`, `high=0.75`, `very_high=1.0`
+
+---
+
+#### `press_trigger_rate`
+
+**Range:** `0..1`
+
+Derived from `press_trigger`:
+
+- `rare=0.2`, `standard=0.5`, `aggressive=0.75`, `constant=0.95`
+
+Optionally modulated by pressing intensity:
+
+```
+press_trigger_rate = clamp01( base_press_trigger * (0.7 + 0.6*press_intensity_bias) )
+```
+
+---
+
+#### `defensive_width_bias`
+
+**Range:** `0..1`
+
+Derived from `defensive_width`:
+
+- `very_narrow=0.0`, `narrow=0.25`, `standard=0.5`, `wide=0.75`, `very_wide=1.0`
+
+---
+
+#### `compactness_bias`
+
+**Range:** `0..1`
+
+Derived from `line_compactness`:
+
+- `very_loose=0.0`, `loose=0.25`, `standard=0.5`, `compact=0.75`, `very_compact=1.0`
+
+---
+
+#### `marking_bias` (zonal↔man)
+
+**Range:** `0..1` (0=zonal, 1=man)
+
+Derived from `marking_style`:
+
+- `zonal=0.0`, `mixed=0.5`, `man=1.0`
+
+---
+
+#### `tackling_aggression_bias`
+
+**Range:** `0..1`
+
+Derived from `tackling_style`:
+
+- `cautious=0.2`, `normal=0.5`, `aggressive=0.85`
+
+---
+
+### E) Transitions (future, but formulas specified)
+
+#### `counter_trigger_bias`
+
+**Range:** `0..1` (0=hold/reset, 1=counter always)
+
+Derived from `transition_on_win`:
+
+- `reset_shape=0.1`
+- `hold_possession=0.3`
+- `counter_if_on=0.6`
+- `counter_immediately=0.9`
+
+---
+
+#### `counterpress_bias`
+
+**Range:** `0..1`
+
+Derived from `transition_on_loss`:
+
+- `fall_back=0.1`
+- `regroup=0.3`
+- `counterpress_if_on=0.6`
+- `counterpress=0.9`
+
+---
+
+#### `counter_speed_bias`
+
+**Range:** `0..1`
+
+Derived from `counter_speed`:
+
+- `slow=0.2`, `normal=0.5`, `fast=0.75`, `very_fast=0.9`
+
+---
+
+### F) Set pieces (future, but formulas specified)
+
+#### `set_piece_attacking_bias`
+
+**Range:** `0..1` (0=short routines, 1=delivery to box)
+
+Derived from `set_piece_attacking_style`:
+
+- `short_routines=0.2`
+- `mixed_routines=0.5`
+- `delivery_to_box=0.85`
+
+---
+
+#### `set_piece_defensive_bias` (zonal↔man)
+
+**Range:** `0..1` (0=zonal, 1=man)
+
+Derived from `set_piece_defensive_style`:
+
+- `zonal=0.0`, `mixed=0.5`, `man=1.0`
+
+---
+
+## V1 wiring note (important)
+
+V1 engine wiring should ONLY consume:
+
+- `possession_tilt`
+- `pass_weight_mult`
+- `turnover_weight_mult`
+- `shot_weight_mult`
+- `shot_conversion_delta`
+
+All other modifiers are defined here to:
+
+- keep the tactical system coherent and complete
+- guide future engine work so tactics can become visible (routes, chance types, pressing events, transitions, set pieces)
+
+Wiring progress should be tracked in the relevant issues (see issue #19 and #17).
