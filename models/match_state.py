@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 
@@ -47,8 +47,8 @@ class MatchState:
     minute: int = 0
     max_minutes: int = 90
 
-    home: TeamMatchState = TeamMatchState()
-    away: TeamMatchState = TeamMatchState()
+    home: TeamMatchState = field(default_factory=TeamMatchState)
+    away: TeamMatchState = field(default_factory=TeamMatchState)
 
     def is_late_game(self) -> bool:
         return self.minute >= int(self.max_minutes * 0.75)
