@@ -1,29 +1,26 @@
 from models.tactic import TeamTactic
 from models.tactic_attributes import (
+    AttackingFocus,
     BuildUpStyle,
-    ChanceCreationStyle,
-    CounterSpeed,
-    CrossingStyle,
+    Compactness,
     DefensiveLine,
     DefensiveWidth,
-    DribblingTendency,
+    DribblingRisk,
     FinalThirdFocus,
-    LineCompactness,
     MarkingStyle,
-    Mentality,
-    PassingDirectness,
+    PassingRisk,
     PressingIntensity,
-    PressTrigger,
-    SetPieceAttackingStyle,
-    SetPieceDefensiveStyle,
-    ShootingTendency,
-    TacklingStyle,
+    SetPieceAttack,
+    SetPieceDefense,
+    ShootingPolicy,
+    TacklingAggression,
+    TeamMentality,
     Tempo,
     TransitionOnLoss,
     TransitionOnWin,
     Width,
 )
-from models.tactical_identity import TacticalIdentity, TacticalIdentityV1
+from models.tactical_identity import TacticalIdentity
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
@@ -34,57 +31,17 @@ def _clamp01(x: float) -> float:
     return _clamp(x, 0.0, 1.0)
 
 
-def _is(cond: bool) -> float:
-    return 1.0 if cond else 0.0
-
-
-def _scale_5(value, very_low, low, mid, high, very_high) -> float:
-    """
-    Map a 5-level enum to [-1, +1]:
-      very_low=-1, low=-0.5, mid=0, high=+0.5, very_high=+1
-    """
-    if value == very_low:
-        return -1.0
-    if value == low:
-        return -0.5
-    if value == mid:
-        return 0.0
-    if value == high:
-        return 0.5
-    if value == very_high:
-        return 1.0
-    return 0.0
-
-
-def _scale_3(value, low, mid, high) -> float:
-    """Map a 3-level enum to [-1, 0, +1]."""
-    if value == low:
-        return -1.0
-    if value == mid:
-        return 0.0
-    if value == high:
-        return 1.0
-    return 0.0
-
-
 class TacticalIdentityBuilder:
     """
-    Builds tactical identity objects from a TeamTactic.
+    Builds TacticalIdentity from TeamTactic based on SPEC Part 2 controls.
 
-    - build_v1(): returns TacticalIdentityV1 (wired into current minute-loop engine)
-    - build_full(): returns TacticalIdentity (full Concept Layer 1 catalog; not fully wired yet)
+    - build_full(): full identity mapping (includes current minute-loop knobs)
     """
 
     @staticmethod
-    def build_v1(tactic: TeamTactic) -> TacticalIdentityV1:
+    def _compute_engine_knobs(tactic: TeamTactic) -> dict[str, float]:
         """
-        V1 intentionally maps only fields that the current basic engine can consume:
-        - build_up_style
-        - tempo
-        - pressing_intensity
-        - mentality
-
-        Other TeamTactic fields are intentionally ignored in V1.
+        Computes current minute-loop engine knobs from TeamTactic.
         """
         possession_tilt = 0.0
         pass_mult = 1.0
@@ -92,7 +49,7 @@ class TacticalIdentityBuilder:
         shot_mult = 1.0
         shot_conv_delta = 0.0
 
-        # build_up_style
+        # Build-up style
         if tactic.build_up_style == BuildUpStyle.BUILD_FROM_BACK:
             possession_tilt += 0.08
             pass_mult += 0.08
@@ -103,9 +60,18 @@ class TacticalIdentityBuilder:
             pass_mult -= 0.06
             turnover_mult += 0.05
             shot_mult += 0.06
+        elif tactic.build_up_style == BuildUpStyle.COUNTER_BUILD_UP:
+            possession_tilt -= 0.04
+            turnover_mult += 0.03
+            shot_mult += 0.03
 
-        # tempo
-        if tactic.tempo == Tempo.HIGH:
+        # Tempo
+        if tactic.tempo == Tempo.VERY_HIGH:
+            possession_tilt -= 0.05
+            turnover_mult += 0.08
+            shot_mult += 0.06
+            shot_conv_delta -= 0.03
+        elif tactic.tempo == Tempo.HIGH:
             possession_tilt -= 0.03
             turnover_mult += 0.06
             shot_mult += 0.04
@@ -116,69 +82,68 @@ class TacticalIdentityBuilder:
             pass_mult += 0.05
             shot_mult -= 0.02
             shot_conv_delta += 0.01
+        elif tactic.tempo == Tempo.VERY_LOW:
+            possession_tilt += 0.05
+            turnover_mult -= 0.08
+            pass_mult += 0.07
+            shot_mult -= 0.04
+            shot_conv_delta += 0.02
 
-        # pressing_intensity
-        if tactic.pressing_intensity == PressingIntensity.HIGH:
-            possession_tilt += 0.04
-            turnover_mult += 0.03
-        elif tactic.pressing_intensity == PressingIntensity.VERY_HIGH:
-            # Previously the doc/builder used "Extreme" but the enum has VERY_HIGH
+        # Pressing intensity
+        if tactic.pressing_intensity == PressingIntensity.EXTREME:
             possession_tilt += 0.06
             turnover_mult += 0.06
             shot_mult += 0.02
             shot_conv_delta -= 0.01
+        elif tactic.pressing_intensity == PressingIntensity.HIGH:
+            possession_tilt += 0.04
+            turnover_mult += 0.03
         elif tactic.pressing_intensity == PressingIntensity.LOW:
             possession_tilt -= 0.04
+        elif tactic.pressing_intensity == PressingIntensity.VERY_LOW:
+            possession_tilt -= 0.06
 
-        # mentality
-        if tactic.mentality == Mentality.ATTACKING:
-            shot_mult += 0.06
+        # Team mentality
+        if tactic.team_mentality == TeamMentality.VERY_ATTACKING:
+            shot_mult += 0.10
+            shot_conv_delta += 0.03
+            turnover_mult += 0.02
+        elif tactic.team_mentality == TeamMentality.ATTACKING:
+            shot_mult += 0.08
             shot_conv_delta += 0.02
-        elif tactic.mentality == Mentality.DEFENSIVE:
+        elif tactic.team_mentality == TeamMentality.POSITIVE:
+            shot_mult += 0.04
+            shot_conv_delta += 0.01
+        elif tactic.team_mentality == TeamMentality.DEFENSIVE:
             shot_mult -= 0.05
             shot_conv_delta -= 0.01
-            # for V1 we bias slightly toward control (not ceding)
             possession_tilt += 0.02
+        elif tactic.team_mentality == TeamMentality.VERY_DEFENSIVE:
+            shot_mult -= 0.08
+            shot_conv_delta -= 0.02
+            possession_tilt += 0.03
 
-        # Clamp values to keep them sane for V1
+        # Clamp values for safe engine behavior
         possession_tilt = _clamp(possession_tilt, -0.20, 0.20)
         pass_mult = _clamp(pass_mult, 0.80, 1.20)
         turnover_mult = _clamp(turnover_mult, 0.80, 1.20)
         shot_mult = _clamp(shot_mult, 0.80, 1.25)
         shot_conv_delta = _clamp(shot_conv_delta, -0.10, 0.10)
 
-        return TacticalIdentityV1(
-            possession_tilt=possession_tilt,
-            pass_weight_mult=pass_mult,
-            turnover_weight_mult=turnover_mult,
-            shot_weight_mult=shot_mult,
-            shot_conversion_delta=shot_conv_delta,
-        )
+        return {
+            "possession_tilt": float(possession_tilt),
+            "pass_weight_mult": float(pass_mult),
+            "turnover_weight_mult": float(turnover_mult),
+            "shot_weight_mult": float(shot_mult),
+            "shot_conversion_delta": float(shot_conv_delta),
+        }
 
     @staticmethod
     def build_full(tactic: TeamTactic) -> TacticalIdentity:
         """
-        Full catalog mapping (Concept Layer 1).
-        This does not mean the engine uses all of it yet; it just makes the mapping complete and deterministic.
+        Full mapping from TeamTactic -> TacticalIdentity.
         """
-        # --- Common scalars ---
-        tempo_factor = _scale_5(
-            tactic.tempo,
-            Tempo.VERY_LOW,
-            Tempo.LOW,
-            Tempo.BALANCED,
-            Tempo.HIGH,
-            Tempo.VERY_HIGH,
-        )
-
-        _press_intensity_factor = _scale_5(
-            tactic.pressing_intensity,
-            PressingIntensity.VERY_LOW,
-            PressingIntensity.LOW,
-            PressingIntensity.STANDARD,
-            PressingIntensity.HIGH,
-            PressingIntensity.VERY_HIGH,
-        )
+        engine_knobs = TacticalIdentityBuilder._compute_engine_knobs(tactic)
 
         width_bias = _clamp01(
             {
@@ -187,7 +152,7 @@ class TacticalIdentityBuilder:
                 Width.BALANCED: 0.5,
                 Width.WIDE: 0.75,
                 Width.VERY_WIDE: 1.0,
-            }.get(tactic.width, 0.5)
+            }[tactic.width]
         )
 
         defensive_line_height = _clamp01(
@@ -197,291 +162,287 @@ class TacticalIdentityBuilder:
                 DefensiveLine.STANDARD: 0.5,
                 DefensiveLine.HIGH: 0.75,
                 DefensiveLine.VERY_HIGH: 1.0,
-            }.get(tactic.defensive_line, 0.5)
+            }[tactic.defensive_line]
+        )
+
+        press_intensity_bias = _clamp01(
+            {
+                PressingIntensity.VERY_LOW: 0.0,
+                PressingIntensity.LOW: 0.25,
+                PressingIntensity.BALANCED: 0.5,
+                PressingIntensity.HIGH: 0.75,
+                PressingIntensity.EXTREME: 1.0,
+            }[tactic.pressing_intensity]
         )
 
         defensive_width_bias = _clamp01(
             {
                 DefensiveWidth.VERY_NARROW: 0.0,
                 DefensiveWidth.NARROW: 0.25,
-                DefensiveWidth.STANDARD: 0.5,
+                DefensiveWidth.BALANCED: 0.5,
                 DefensiveWidth.WIDE: 0.75,
                 DefensiveWidth.VERY_WIDE: 1.0,
-            }.get(tactic.defensive_width, 0.5)
+            }[tactic.defensive_width]
         )
 
         compactness_bias = _clamp01(
             {
-                LineCompactness.VERY_LOOSE: 0.0,
-                LineCompactness.LOOSE: 0.25,
-                LineCompactness.STANDARD: 0.5,
-                LineCompactness.COMPACT: 0.75,
-                LineCompactness.VERY_COMPACT: 1.0,
-            }.get(tactic.line_compactness, 0.5)
+                Compactness.VERY_LOOSE: 0.0,
+                Compactness.LOOSE: 0.25,
+                Compactness.BALANCED: 0.5,
+                Compactness.COMPACT: 0.75,
+                Compactness.VERY_COMPACT: 1.0,
+            }[tactic.compactness]
         )
 
         marking_bias = _clamp01(
             {
                 MarkingStyle.ZONAL: 0.0,
                 MarkingStyle.MIXED: 0.5,
-                MarkingStyle.MAN: 1.0,
-            }.get(tactic.marking_style, 0.0)
+                MarkingStyle.TIGHT_MAN_ORIENTED: 1.0,
+            }[tactic.marking_style]
         )
 
         tackling_aggression_bias = _clamp01(
             {
-                TacklingStyle.CAUTIOUS: 0.2,
-                TacklingStyle.NORMAL: 0.5,
-                TacklingStyle.AGGRESSIVE: 0.85,
-            }.get(tactic.tackling_style, 0.5)
+                TacklingAggression.STAY_ON_FEET: 0.2,
+                TacklingAggression.BALANCED: 0.5,
+                TacklingAggression.AGGRESSIVE: 0.8,
+                TacklingAggression.VERY_AGGRESSIVE: 1.0,
+            }[tactic.tackling_aggression]
         )
 
-        dribbling_factor = _scale_3(
-            tactic.dribbling_tendency,
-            DribblingTendency.RARELY,
-            DribblingTendency.SITUATIONAL,
-            DribblingTendency.OFTEN,
+        risk_taking = _clamp01(
+            0.5
+            + {
+                PassingRisk.VERY_SAFE: -0.25,
+                PassingRisk.SAFE: -0.10,
+                PassingRisk.BALANCED: 0.0,
+                PassingRisk.RISKY: 0.12,
+                PassingRisk.VERY_RISKY: 0.22,
+            }[tactic.passing_risk]
+            + {
+                DribblingRisk.VERY_CONSERVATIVE: -0.08,
+                DribblingRisk.BALANCED: 0.0,
+                DribblingRisk.AGGRESSIVE: 0.10,
+            }[tactic.dribbling_risk]
+            + {
+                TeamMentality.VERY_DEFENSIVE: -0.18,
+                TeamMentality.DEFENSIVE: -0.10,
+                TeamMentality.CAUTIOUS: -0.05,
+                TeamMentality.BALANCED: 0.0,
+                TeamMentality.POSITIVE: 0.05,
+                TeamMentality.ATTACKING: 0.12,
+                TeamMentality.VERY_ATTACKING: 0.20,
+            }[tactic.team_mentality]
         )
-        dribbling_factor_pos = _clamp01(
-            (dribbling_factor + 1.0) / 2.0
-        )  # [-1,1] -> [0,1]
 
-        passing_directness_factor = {
-            PassingDirectness.VERY_SHORT: -1.0,
-            PassingDirectness.SHORT: -0.5,
-            PassingDirectness.MIXED: 0.0,
-            PassingDirectness.DIRECT: 0.5,
-            PassingDirectness.VERY_DIRECT: 1.0,
-        }.get(tactic.passing_directness, 0.0)
+        directness_bias = _clamp01(
+            {
+                BuildUpStyle.BUILD_FROM_BACK: 0.20,
+                BuildUpStyle.MIXED_BUILD_UP: 0.50,
+                BuildUpStyle.DIRECT_PROGRESSION: 0.75,
+                BuildUpStyle.LONG_BALL: 1.00,
+                BuildUpStyle.COUNTER_BUILD_UP: 0.85,
+            }[tactic.build_up_style]
+        )
 
-        # mentality factors
-        mentality_attack_factor = {
-            Mentality.ULTRA_DEFENSIVE: -1.0,
-            Mentality.DEFENSIVE: -0.5,
-            Mentality.BALANCED: 0.0,
-            Mentality.ATTACKING: 0.6,
-            Mentality.ULTRA_ATTACKING: 1.0,
-        }.get(tactic.mentality, 0.0)
+        vertical_progression_bias = _clamp01(
+            {
+                Tempo.VERY_LOW: 0.20,
+                Tempo.LOW: 0.35,
+                Tempo.BALANCED: 0.50,
+                Tempo.HIGH: 0.75,
+                Tempo.VERY_HIGH: 0.95,
+            }[tactic.tempo]
+        )
 
-        _mentality_control_factor = {
-            Mentality.ULTRA_DEFENSIVE: 0.6,
-            Mentality.DEFENSIVE: 0.4,
-            Mentality.BALANCED: 0.0,
-            Mentality.ATTACKING: -0.2,
-            Mentality.ULTRA_ATTACKING: -0.4,
-        }.get(tactic.mentality, 0.0)
+        short_pass_bias = _clamp01(1.0 - (0.70 * directness_bias + 0.30 * risk_taking))
 
-        # build_up style factors
-        build_up_style_factor = {
-            BuildUpStyle.BUILD_FROM_BACK: 1.0,
-            BuildUpStyle.MIXED_BUILD_UP: 0.3,
-            BuildUpStyle.DIRECT_BUILD_UP: -0.3,
-            BuildUpStyle.LONG_BALL: -1.0,
-        }.get(tactic.build_up_style, 0.0)
-
-        # chance creation style "risk" and "quality" flavors
-        chance_creation_risk_factor = {
-            ChanceCreationStyle.PATIENT_COMBINATIONS: -0.6,
-            ChanceCreationStyle.MIXED: 0.0,
-            ChanceCreationStyle.FAST_VERTICAL: 0.8,
-            ChanceCreationStyle.SECOND_BALLS: 0.4,
-            ChanceCreationStyle.WIDE_OVERLOADS: 0.2,
-            ChanceCreationStyle.ISOLATIONS_1V1: 0.3,
-        }.get(tactic.chance_creation_style, 0.0)
-
-        _chance_creation_quality_factor = {
-            ChanceCreationStyle.PATIENT_COMBINATIONS: 0.5,
-            ChanceCreationStyle.WIDE_OVERLOADS: 0.2,
-            ChanceCreationStyle.MIXED: 0.0,
-            ChanceCreationStyle.FAST_VERTICAL: -0.1,
-            ChanceCreationStyle.SECOND_BALLS: -0.2,
-            ChanceCreationStyle.ISOLATIONS_1V1: 0.1,
-        }.get(tactic.chance_creation_style, 0.0)
-
-        # shooting tendency factor used by "shot patience"
         shot_patience = _clamp01(
             {
-                ShootingTendency.WORK_BALL_INTO_BOX: 0.85,
-                ShootingTendency.MIXED_SHOOTING: 0.50,
-                ShootingTendency.SHOOT_ON_SIGHT: 0.20,
-            }.get(tactic.shooting_tendency, 0.50)
+                ShootingPolicy.SHOOT_LESS: 0.80,
+                ShootingPolicy.BALANCED: 0.50,
+                ShootingPolicy.SHOOT_MORE: 0.30,
+                ShootingPolicy.SHOOT_AGGRESSIVELY: 0.15,
+            }[tactic.shooting_policy]
         )
 
-        # press trigger base
-        base_press_trigger = {
-            PressTrigger.RARE: 0.20,
-            PressTrigger.STANDARD: 0.50,
-            PressTrigger.AGGRESSIVE: 0.75,
-            PressTrigger.CONSTANT: 0.95,
-        }.get(tactic.press_trigger, 0.50)
-
-        press_intensity_bias = _clamp01(
-            {
-                PressingIntensity.VERY_LOW: 0.0,
-                PressingIntensity.LOW: 0.25,
-                PressingIntensity.STANDARD: 0.5,
-                PressingIntensity.HIGH: 0.75,
-                PressingIntensity.VERY_HIGH: 1.0,
-            }.get(tactic.pressing_intensity, 0.5)
+        through_ball_bias = _clamp01(
+            0.25
+            + 0.40
+            * (
+                1.0
+                if tactic.final_third_focus == FinalThirdFocus.THROUGH_BALL_FOCUS
+                else 0.0
+            )
+            + 0.10
+            * (1.0 if tactic.attacking_focus == AttackingFocus.ATTACK_CENTRE else 0.0)
+            + 0.10 * (1.0 - width_bias)
         )
+
+        cross_bias = _clamp01(
+            0.25
+            + 0.35
+            * (
+                1.0
+                if tactic.final_third_focus
+                in (FinalThirdFocus.CROSS_EARLY, FinalThirdFocus.OVERLAP_WIDE)
+                else 0.0
+            )
+            + 0.20 * width_bias
+        )
+
+        cutback_bias = _clamp01(
+            0.20
+            + 0.35
+            * (
+                1.0
+                if tactic.final_third_focus == FinalThirdFocus.UNDERLAP_INSIDE
+                else 0.0
+            )
+            + 0.10 * width_bias
+        )
+
+        dribble_creation_bias = _clamp01(
+            0.20
+            + 0.45
+            * (1.0 if tactic.final_third_focus == FinalThirdFocus.DRIBBLE_MORE else 0.0)
+            + 0.20
+            * {
+                DribblingRisk.VERY_CONSERVATIVE: 0.0,
+                DribblingRisk.BALANCED: 0.5,
+                DribblingRisk.AGGRESSIVE: 1.0,
+            }[tactic.dribbling_risk]
+        )
+
+        long_shot_bias = _clamp01(
+            0.15
+            + 0.45
+            * (
+                1.0
+                if tactic.final_third_focus == FinalThirdFocus.SHOOT_ON_SIGHT
+                else 0.0
+            )
+            + 0.25 * (1.0 - shot_patience)
+        )
+
+        if tactic.attacking_focus == AttackingFocus.ATTACK_LEFT:
+            attack_left_bias, attack_central_bias, attack_right_bias = 0.55, 0.25, 0.20
+        elif tactic.attacking_focus == AttackingFocus.ATTACK_RIGHT:
+            attack_left_bias, attack_central_bias, attack_right_bias = 0.20, 0.25, 0.55
+        elif tactic.attacking_focus == AttackingFocus.ATTACK_CENTRE:
+            attack_left_bias, attack_central_bias, attack_right_bias = 0.20, 0.60, 0.20
+        elif tactic.attacking_focus == AttackingFocus.TARGET_HALF_SPACES:
+            attack_left_bias, attack_central_bias, attack_right_bias = 0.30, 0.40, 0.30
+        else:
+            attack_left_bias, attack_central_bias, attack_right_bias = 0.33, 0.34, 0.33
 
         press_trigger_rate = _clamp01(
-            base_press_trigger * (0.7 + 0.6 * press_intensity_bias)
+            {
+                TransitionOnLoss.COUNTERPRESS: 0.90,
+                TransitionOnLoss.DELAY: 0.60,
+                TransitionOnLoss.REGROUP: 0.35,
+                TransitionOnLoss.TACTICAL_FOUL: 0.75,
+                TransitionOnLoss.DROP_DEEP_IMMEDIATELY: 0.15,
+            }[tactic.transition_on_loss]
+            * (0.7 + 0.6 * press_intensity_bias)
         )
 
-        # transitions
         counter_trigger_bias = _clamp01(
             {
-                TransitionOnWin.RESET_SHAPE: 0.10,
-                TransitionOnWin.HOLD_POSSESSION: 0.30,
-                TransitionOnWin.COUNTER_IF_ON: 0.60,
                 TransitionOnWin.COUNTER_IMMEDIATELY: 0.90,
-            }.get(tactic.transition_on_win, 0.50)
+                TransitionOnWin.PROGRESS_SAFELY: 0.45,
+                TransitionOnWin.HOLD_SHAPE: 0.15,
+                TransitionOnWin.FEED_PLAYMAKER: 0.55,
+                TransitionOnWin.FEED_WINGER: 0.65,
+                TransitionOnWin.GO_LONG_TO_STRIKER: 0.80,
+                TransitionOnWin.ATTACK_WEAK_SIDE: 0.70,
+            }[tactic.transition_on_win]
         )
 
         counterpress_bias = _clamp01(
             {
-                TransitionOnLoss.FALL_BACK: 0.10,
+                TransitionOnLoss.COUNTERPRESS: 0.95,
+                TransitionOnLoss.DELAY: 0.60,
                 TransitionOnLoss.REGROUP: 0.30,
-                TransitionOnLoss.COUNTERPRESS_IF_ON: 0.60,
-                TransitionOnLoss.COUNTERPRESS: 0.90,
-            }.get(tactic.transition_on_loss, 0.50)
+                TransitionOnLoss.TACTICAL_FOUL: 0.75,
+                TransitionOnLoss.DROP_DEEP_IMMEDIATELY: 0.10,
+            }[tactic.transition_on_loss]
         )
 
         counter_speed_bias = _clamp01(
-            {
-                CounterSpeed.SLOW: 0.20,
-                CounterSpeed.NORMAL: 0.50,
-                CounterSpeed.FAST: 0.75,
-                CounterSpeed.VERY_FAST: 0.90,
-            }.get(tactic.counter_speed, 0.50)
+            0.5
+            + 0.25
+            * (
+                1.0
+                if tactic.transition_on_win
+                in (
+                    TransitionOnWin.COUNTER_IMMEDIATELY,
+                    TransitionOnWin.GO_LONG_TO_STRIKER,
+                )
+                else 0.0
+            )
+            + 0.15 * (1.0 if tactic.tempo in (Tempo.HIGH, Tempo.VERY_HIGH) else 0.0)
+            - 0.20
+            * (1.0 if tactic.transition_on_win == TransitionOnWin.HOLD_SHAPE else 0.0)
         )
 
-        # set pieces
         set_piece_attacking_bias = _clamp01(
             {
-                SetPieceAttackingStyle.SHORT_ROUTINES: 0.20,
-                SetPieceAttackingStyle.MIXED_ROUTINES: 0.50,
-                SetPieceAttackingStyle.DELIVERY_TO_BOX: 0.85,
-            }.get(tactic.set_piece_attacking_style, 0.50)
+                SetPieceAttack.SHORT_CORNERS: 0.20,
+                SetPieceAttack.MIXED_CORNERS: 0.50,
+                SetPieceAttack.NEAR_POST_CORNERS: 0.70,
+                SetPieceAttack.FAR_POST_CORNERS: 0.70,
+                SetPieceAttack.CROWD_GOALKEEPER: 0.80,
+                SetPieceAttack.EDGE_OF_BOX_SETUP: 0.45,
+                SetPieceAttack.TALL_PLAYER_TARGETING: 0.90,
+                SetPieceAttack.REBOUND_HUNTING: 0.65,
+            }[tactic.set_piece_attack]
         )
 
         set_piece_defensive_bias = _clamp01(
             {
-                SetPieceDefensiveStyle.ZONAL: 0.0,
-                SetPieceDefensiveStyle.MIXED: 0.5,
-                SetPieceDefensiveStyle.MAN: 1.0,
-            }.get(tactic.set_piece_defensive_style, 0.0)
+                SetPieceDefense.ZONAL_MARKING: 0.0,
+                SetPieceDefense.MIXED_MARKING: 0.5,
+                SetPieceDefense.MAN_MARKING: 1.0,
+                SetPieceDefense.LEAVE_PLAYERS_UP: 0.3,
+                SetPieceDefense.FULL_RETREAT: 0.2,
+                SetPieceDefense.COUNTER_SETUP: 0.4,
+                SetPieceDefense.NEAR_POST_GUARD: 0.3,
+            }[tactic.set_piece_defense]
         )
-
-        # --- Build-up/progression outputs ---
-        directness_bias = _clamp01(
-            0.5 + 0.25 * passing_directness_factor + 0.15 * (-build_up_style_factor)
-        )
-        vertical_progression_bias = _clamp01(
-            0.5 + 0.20 * passing_directness_factor + 0.10 * tempo_factor
-        )
-        short_pass_bias = _clamp01(1.0 - directness_bias)
-
-        # --- Risk taking ---
-        risk_taking = _clamp01(
-            0.50
-            + 0.18 * tempo_factor
-            + 0.16 * passing_directness_factor
-            + 0.12 * mentality_attack_factor
-            + 0.08 * chance_creation_risk_factor
-        )
-
-        # --- Chance type biases ---
-        crossing_style_factor = _clamp01(
-            {
-                CrossingStyle.EARLY_CROSSES: 0.80,
-                CrossingStyle.MIXED_CROSSES: 0.50,
-                CrossingStyle.BYLINE_CUTBACKS: 0.20,
-            }.get(tactic.crossing_style, 0.50)
-        )
-
-        final_third_focus = tactic.final_third_focus
-        through_ball_bias = _clamp01(
-            0.35
-            + 0.35 * _is(final_third_focus == FinalThirdFocus.THROUGH_BALL_FOCUS)
-            + 0.15
-            * _is(tactic.chance_creation_style == ChanceCreationStyle.FAST_VERTICAL)
-            + 0.10 * (1.0 - width_bias)
-            + 0.05 * _clamp01((passing_directness_factor + 1.0) / 2.0)
-        )
-
-        cross_bias = _clamp01(
-            0.30
-            + 0.35 * _is(final_third_focus == FinalThirdFocus.CROSSING_FOCUS)
-            + 0.15 * crossing_style_factor
-            + 0.15 * width_bias
-            + 0.10
-            * _is(tactic.chance_creation_style == ChanceCreationStyle.WIDE_OVERLOADS)
-        )
-
-        cutback_bias = _clamp01(
-            0.25
-            + 0.40 * _is(final_third_focus == FinalThirdFocus.CUTBACK_FOCUS)
-            + 0.20 * _is(tactic.crossing_style == CrossingStyle.BYLINE_CUTBACKS)
-            + 0.10 * dribbling_factor_pos
-            + 0.05 * width_bias
-        )
-
-        dribble_creation_bias = _clamp01(
-            0.25
-            + 0.35 * _is(final_third_focus == FinalThirdFocus.DRIBBLE_FOCUS)
-            + 0.20
-            * _is(tactic.chance_creation_style == ChanceCreationStyle.ISOLATIONS_1V1)
-            + 0.20 * dribbling_factor_pos
-        )
-
-        long_shot_bias = _clamp01(
-            0.20
-            + 0.40 * _is(final_third_focus == FinalThirdFocus.SHOOTING_FOCUS)
-            + 0.25 * _is(tactic.shooting_tendency == ShootingTendency.SHOOT_ON_SIGHT)
-            + 0.10
-            * _is(tactic.chance_creation_style == ChanceCreationStyle.SECOND_BALLS)
-        )
-
-        # --- Route biases (left/central/right) ---
-        # With no side-specific tactic inputs, derive a central preference from width + through-ball vs crossing.
-        central_preference = _clamp01(
-            0.50
-            + 0.20 * (1.0 - width_bias)
-            + 0.15 * _is(final_third_focus == FinalThirdFocus.THROUGH_BALL_FOCUS)
-            - 0.15 * _is(final_third_focus == FinalThirdFocus.CROSSING_FOCUS)
-        )
-        attack_central_bias = central_preference
-        side_total = 1.0 - attack_central_bias
-        attack_left_bias = side_total / 2.0
-        attack_right_bias = side_total / 2.0
 
         return TacticalIdentity(
-            risk_taking=risk_taking,
-            directness_bias=directness_bias,
-            vertical_progression_bias=vertical_progression_bias,
-            short_pass_bias=short_pass_bias,
-            width_bias=width_bias,
-            attack_left_bias=attack_left_bias,
-            attack_central_bias=attack_central_bias,
-            attack_right_bias=attack_right_bias,
-            through_ball_bias=through_ball_bias,
-            cross_bias=cross_bias,
-            cutback_bias=cutback_bias,
-            dribble_creation_bias=dribble_creation_bias,
-            long_shot_bias=long_shot_bias,
-            shot_patience=shot_patience,
-            defensive_line_height=defensive_line_height,
-            press_intensity_bias=press_intensity_bias,
-            press_trigger_rate=press_trigger_rate,
-            defensive_width_bias=defensive_width_bias,
-            compactness_bias=compactness_bias,
-            marking_bias=marking_bias,
-            tackling_aggression_bias=tackling_aggression_bias,
-            counter_trigger_bias=counter_trigger_bias,
-            counterpress_bias=counterpress_bias,
-            counter_speed_bias=counter_speed_bias,
-            set_piece_attacking_bias=set_piece_attacking_bias,
-            set_piece_defensive_bias=set_piece_defensive_bias,
+            risk_taking=float(risk_taking),
+            directness_bias=float(directness_bias),
+            vertical_progression_bias=float(vertical_progression_bias),
+            short_pass_bias=float(short_pass_bias),
+            width_bias=float(width_bias),
+            attack_left_bias=float(attack_left_bias),
+            attack_central_bias=float(attack_central_bias),
+            attack_right_bias=float(attack_right_bias),
+            through_ball_bias=float(through_ball_bias),
+            cross_bias=float(cross_bias),
+            cutback_bias=float(cutback_bias),
+            dribble_creation_bias=float(dribble_creation_bias),
+            long_shot_bias=float(long_shot_bias),
+            shot_patience=float(shot_patience),
+            defensive_line_height=float(defensive_line_height),
+            press_intensity_bias=float(press_intensity_bias),
+            press_trigger_rate=float(press_trigger_rate),
+            defensive_width_bias=float(defensive_width_bias),
+            compactness_bias=float(compactness_bias),
+            marking_bias=float(marking_bias),
+            tackling_aggression_bias=float(tackling_aggression_bias),
+            counter_trigger_bias=float(counter_trigger_bias),
+            counterpress_bias=float(counterpress_bias),
+            counter_speed_bias=float(counter_speed_bias),
+            set_piece_attacking_bias=float(set_piece_attacking_bias),
+            set_piece_defensive_bias=float(set_piece_defensive_bias),
+            possession_tilt=engine_knobs["possession_tilt"],
+            pass_weight_mult=engine_knobs["pass_weight_mult"],
+            turnover_weight_mult=engine_knobs["turnover_weight_mult"],
+            shot_weight_mult=engine_knobs["shot_weight_mult"],
+            shot_conversion_delta=engine_knobs["shot_conversion_delta"],
         )

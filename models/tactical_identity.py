@@ -2,29 +2,6 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True)
-class TacticalIdentityV1:
-    """
-    V1 tactical identity biases for the current basic match engine loop.
-
-    Values are intentionally small nudges applied to baseline weights/probabilities,
-    then clamped by the consumer.
-
-    This is intentionally minimal and only includes what the current minute-loop engine consumes.
-    """
-
-    # -0.20 .. +0.20 (recommended)
-    possession_tilt: float = 0.0
-
-    # multipliers applied to base event weights (recommended ranges in docs)
-    pass_weight_mult: float = 1.0
-    turnover_weight_mult: float = 1.0
-    shot_weight_mult: float = 1.0
-
-    # delta applied to base goal probability (recommended -0.10 .. +0.10)
-    shot_conversion_delta: float = 0.0
-
-
-@dataclass(frozen=True)
 class TacticalIdentity:
     """
     Full Tactical Identity modifier catalog (Concept Layer 1).
@@ -36,8 +13,8 @@ class TacticalIdentity:
     - transitions (counter vs hold; counter speed; counterpress)
     - set-piece tendencies
 
-    Most of these fields are not wired into the current V1 minute-loop yet,
-    but exist so every TeamTactic attribute maps deterministically to engine-facing values.
+    This class also includes engine-facing fields used by the current minute-loop,
+    so there is a single tactical identity model for both present and future layers.
 
     Conventions:
     - Most "bias" values use 0..1 (where 0 = low/left/zonal/etc, 1 = high/right/man/etc depending on the field).
@@ -111,3 +88,15 @@ class TacticalIdentity:
 
     # 0..1: 0 = zonal, 1 = man
     set_piece_defensive_bias: float = 0.00
+
+    # ---- Current minute-loop engine-facing knobs ----
+    # -0.20 .. +0.20 (recommended)
+    possession_tilt: float = 0.0
+
+    # multipliers applied to base event weights (recommended ranges in docs)
+    pass_weight_mult: float = 1.0
+    turnover_weight_mult: float = 1.0
+    shot_weight_mult: float = 1.0
+
+    # delta applied to base goal probability (recommended -0.10 .. +0.10)
+    shot_conversion_delta: float = 0.0
