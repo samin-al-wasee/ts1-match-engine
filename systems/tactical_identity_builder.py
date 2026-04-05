@@ -131,7 +131,7 @@ class TacticalIdentityBuilder:
             possession_tilt -= 0.04
 
         # mentality
-        if tactic.mentality == Mentality.POSITIVE:
+        if tactic.mentality == Mentality.ATTACKING:
             shot_mult += 0.06
             shot_conv_delta += 0.02
         elif tactic.mentality == Mentality.DEFENSIVE:
@@ -259,7 +259,6 @@ class TacticalIdentityBuilder:
             Mentality.ULTRA_DEFENSIVE: -1.0,
             Mentality.DEFENSIVE: -0.5,
             Mentality.BALANCED: 0.0,
-            Mentality.POSITIVE: 0.3,
             Mentality.ATTACKING: 0.6,
             Mentality.ULTRA_ATTACKING: 1.0,
         }.get(tactic.mentality, 0.0)
@@ -268,7 +267,6 @@ class TacticalIdentityBuilder:
             Mentality.ULTRA_DEFENSIVE: 0.6,
             Mentality.DEFENSIVE: 0.4,
             Mentality.BALANCED: 0.0,
-            Mentality.POSITIVE: 0.2,
             Mentality.ATTACKING: -0.2,
             Mentality.ULTRA_ATTACKING: -0.4,
         }.get(tactic.mentality, 0.0)
