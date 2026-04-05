@@ -8,7 +8,6 @@ class Mentality(StrEnum):
     ULTRA_DEFENSIVE = "Ultra Defensive"
     DEFENSIVE = "Defensive"
     BALANCED = "Balanced"
-    POSITIVE = "Positive"
     ATTACKING = "Attacking"
     ULTRA_ATTACKING = "Ultra Attacking"
 
