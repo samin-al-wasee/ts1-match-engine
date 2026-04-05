@@ -15,20 +15,57 @@ from debug.printer import (
 )
 from systems.strength_calculator import StrengthCalculator
 from utils.attr_generator import generate_player_attribute_groups
+from models.tactic_attributes import (
+    BuildUpStyle,
+    ChanceCreationStyle,
+    CounterSpeed,
+    CrossingStyle,
+    DefensiveLine,
+    DefensiveWidth,
+    DribblingTendency,
+    FinalThirdFocus,
+    LineCompactness,
+    MarkingStyle,
+    Mentality,
+    PassingDirectness,
+    PressingIntensity,
+    PressTrigger,
+    SetPieceAttackingStyle,
+    SetPieceDefensiveStyle,
+    ShootingTendency,
+    TacklingStyle,
+    Tempo,
+    TransitionOnLoss,
+    TransitionOnWin,
+    Width,
+)
 
 
 def main():
     # Tactic for both teams
     tactic = TeamTactic(
-        mentality="Balanced",
-        build_up_style="Build From Back",
-        tempo="High",
-        width="Wide",
-        attacking_focus="Attack Left",
-        defensive_line="High",
-        pressing_intensity="High",
-        transition_on_win="Counter Immediately",
-        transition_on_loss="Counterpress",
+        mentality=Mentality.BALANCED,
+        build_up_style=BuildUpStyle.MIXED_BUILD_UP,
+        tempo=Tempo.BALANCED,
+        width=Width.BALANCED,
+        final_third_focus=FinalThirdFocus.MIXED,
+        passing_directness=PassingDirectness.MIXED,
+        chance_creation_style=ChanceCreationStyle.MIXED,
+        crossing_style=CrossingStyle.MIXED_CROSSES,
+        shooting_tendency=ShootingTendency.MIXED_SHOOTING,
+        dribbling_tendency=DribblingTendency.SITUATIONAL,
+        defensive_line=DefensiveLine.STANDARD,
+        pressing_intensity=PressingIntensity.STANDARD,
+        press_trigger=PressTrigger.STANDARD,
+        defensive_width=DefensiveWidth.STANDARD,
+        line_compactness=LineCompactness.STANDARD,
+        marking_style=MarkingStyle.MIXED,
+        tackling_style=TacklingStyle.NORMAL,
+        transition_on_win=TransitionOnWin.COUNTER_IF_ON,
+        transition_on_loss=TransitionOnLoss.COUNTERPRESS_IF_ON,
+        counter_speed=CounterSpeed.FAST,
+        set_piece_attacking_style=SetPieceAttackingStyle.MIXED_ROUTINES,
+        set_piece_defensive_style=SetPieceDefensiveStyle.MIXED,
     )
 
     # Create Home team
