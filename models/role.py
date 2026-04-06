@@ -21,22 +21,20 @@ class Role(StrEnum):
     BALL_PLAYING_DEFENDER = "Ball Playing Defender"
     WIDE_BACK = "Wide Back"
 
-    ANCHOR_HOLDING_MIDFIELDER = "Anchor / Holding Midfielder"
+    ANCHOR = "Anchor (Holding Midfielder)"
     BALL_WINNING_MIDFIELDER = "Ball-Winning Midfielder"
-    DEEP_LYING_PLAYMAKER_REGISTA = "Deep-Lying Playmaker (Regista)"
+    REGISTA = "Regista (Deep-Lying Playmaker)"
     HALF_BACK = "Half Back"
 
     BOX_TO_BOX_MIDFIELDER = "Box-to-Box Midfielder"
-    MEZZALA_ADVANCED_WIDE_MIDFIELDER = "Mezzala (Advanced Wide Midfielder)"
-    CARRILERO_SHUTTLING_MIDFIELDER = "Carrilero (Shuttling Midfielder)"
+    MEZZALA = "Mezzala (Advanced Wide Midfielder)"
+    CARRILERO = "Carrilero (Shuttling Midfielder)"
     BOX_CRASHER = "Box Crasher"
 
     SHADOW_STRIKER = "Shadow Striker"
-    TREQUARTISTA_PLAYMAKER_FREE_ATTACKING_MIDFIELDER = (
-        "Trequartista (Playmaker / Free Attacking Midfielder)"
-    )
-    ENGANCHE_HOOK_CLASSIC_NUMBER_10 = "Enganche (Hook / Classic Number 10)"
-    HALF_WINGER_WIDE_AM = "Half Winger / Wide AM"
+    TREQUARTISTA = "Trequartista (Playmaker)"
+    ENGANCHE = "Enganche (Classic Number 10)"
+    HALF_WINGER = "Half Winger (Wide Attacking Midfielder)"
 
     WINGER = "Winger"
     INVERTED_WINGER = "Inverted Winger"
