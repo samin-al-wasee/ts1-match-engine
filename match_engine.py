@@ -78,8 +78,8 @@ class Match:
         print_match_kickoff(self.home_team, self.away_team)
 
         # ---- Layer 1 (full identity) ----
-        self.home_id_full = TacticalIdentityBuilder.build_full(self.home_team.tactic)  # type: ignore
-        self.away_id_full = TacticalIdentityBuilder.build_full(self.away_team.tactic)  # type: ignore
+        self.home_id_full = TacticalIdentityBuilder.build_for_team(self.home_team)  # type: ignore
+        self.away_id_full = TacticalIdentityBuilder.build_for_team(self.away_team)  # type: ignore
 
         # ---- Layer 2 (strength) ----
         self.home_strength = StrengthCalculator.calculate(self.home_team)  # type: ignore

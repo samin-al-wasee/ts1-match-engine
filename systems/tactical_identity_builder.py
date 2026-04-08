@@ -1,3 +1,6 @@
+from dataclasses import replace
+from typing import TYPE_CHECKING
+
 from models.tactic import TeamTactic
 from models.tactic_attributes import (
     AttackingFocus,
@@ -21,6 +24,9 @@ from models.tactic_attributes import (
     Width,
 )
 from models.tactical_identity import TacticalIdentity
+
+if TYPE_CHECKING:
+    from models.team import Team
 
 
 def _clamp(x: float, lo: float, hi: float) -> float:
@@ -445,4 +451,58 @@ class TacticalIdentityBuilder:
             turnover_weight_mult=engine_knobs["turnover_weight_mult"],
             shot_weight_mult=engine_knobs["shot_weight_mult"],
             shot_conversion_delta=engine_knobs["shot_conversion_delta"],
+        )
+
+    @staticmethod
+    def build_for_team(team: "Team") -> TacticalIdentity:
+        """
+        Structure-aware TacticalIdentity.
+
+        Base identity comes from TeamTactic and is then adjusted by structural
+        expression quality from the lineup/formation profile.
+        """
+        base = TacticalIdentityBuilder.build_full(team.tactic)
+        profile = team.structural_profile
+
+        width_bias = _clamp01(base.width_bias + (profile.width_coverage - 0.5) * 0.20)
+        attack_central_bias = _clamp01(
+            base.attack_central_bias + (profile.central_density - 0.5) * 0.18
+        )
+        attack_left_bias = _clamp01(
+            base.attack_left_bias + (profile.width_coverage - 0.5) * 0.05
+        )
+        attack_right_bias = _clamp01(
+            base.attack_right_bias + (profile.width_coverage - 0.5) * 0.05
+        )
+
+        attack_sum = max(
+            1e-9, attack_left_bias + attack_central_bias + attack_right_bias
+        )
+        attack_left_bias /= attack_sum
+        attack_central_bias /= attack_sum
+        attack_right_bias /= attack_sum
+
+        press_intensity_bias = _clamp01(
+            base.press_intensity_bias + (profile.press_shape_cohesion - 0.5) * 0.20
+        )
+        counterpress_bias = _clamp01(
+            base.counterpress_bias + (profile.transition_protection - 0.5) * 0.25
+        )
+        defensive_line_height = _clamp01(
+            base.defensive_line_height + (profile.rest_defense_stability - 0.5) * 0.15
+        )
+        shot_patience = _clamp01(
+            base.shot_patience - (profile.box_presence - 0.5) * 0.12
+        )
+
+        return replace(
+            base,
+            width_bias=float(width_bias),
+            attack_left_bias=float(attack_left_bias),
+            attack_central_bias=float(attack_central_bias),
+            attack_right_bias=float(attack_right_bias),
+            press_intensity_bias=float(press_intensity_bias),
+            counterpress_bias=float(counterpress_bias),
+            defensive_line_height=float(defensive_line_height),
+            shot_patience=float(shot_patience),
         )

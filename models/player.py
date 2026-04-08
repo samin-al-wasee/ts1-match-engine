@@ -4,8 +4,6 @@ from typing import Dict
 
 from models.player_attributes import Footedness
 from models.position import Position
-from models.role import Role
-from models.duty import Duty
 
 
 @dataclass
@@ -17,10 +15,7 @@ class Player:
     weight_kg: float
 
     position: Position
-    role: Role
-    duty: Duty
     footedness: Footedness
-
     technical: Dict[str, int] = field(default_factory=dict)
     mental: Dict[str, int] = field(default_factory=dict)
     physical: Dict[str, int] = field(default_factory=dict)
@@ -56,4 +51,4 @@ class Player:
         return round(self.weight_kg * 2.20462, 1)
 
     def overall_summary(self) -> str:
-        return f"{self.name} ({self.position}) - {self.role} [{self.duty}] - {self.footedness}"
+        return f"{self.name} ({self.position}) - {self.footedness}"

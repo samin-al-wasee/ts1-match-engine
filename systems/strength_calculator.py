@@ -20,6 +20,7 @@ class StrengthCalculator:
     @staticmethod
     def calculate(team: Team) -> TeamStrengthProfile:
         players = team.starting_xi
+        structural = team.structural_profile
 
         if not players:
             return TeamStrengthProfile(
@@ -290,6 +291,18 @@ class StrengthCalculator:
 
         pressing_force += StrengthCalculator._tackling_press_modifier(team)
         discipline_control += StrengthCalculator._tackling_discipline_modifier(team)
+
+        # Apply lineup/formation structural expression multipliers.
+        wide_attack *= 1.0 + (structural.width_coverage - 0.5) * 0.18
+        central_creativity *= 1.0 + (structural.central_density - 0.5) * 0.18
+        chance_conversion *= 1.0 + (structural.box_presence - 0.5) * 0.14
+        pressing_force *= 1.0 + (structural.press_shape_cohesion - 0.5) * 0.18
+        transition_defense *= 1.0 + (structural.transition_protection - 0.5) * 0.20
+        defensive_compactness *= 1.0 + (structural.rest_defense_stability - 0.5) * 0.16
+        set_piece_attack_strength *= 1.0 + (structural.box_presence - 0.5) * 0.12
+        set_piece_defense_strength *= (
+            1.0 + (structural.rest_defense_stability - 0.5) * 0.12
+        )
 
         # Keep all profile dimensions in a stable 0..100 style scale.
         possession_security = max(0.0, min(100.0, possession_security))
